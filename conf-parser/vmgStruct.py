@@ -1,5 +1,4 @@
 import pickle
-from vmgStruct import *
 
 class vmgSection:
     '''
@@ -18,23 +17,19 @@ class vmgSection:
         s += "\n"
         return s
         
-    def contains(self, section, option):
-        try:
-            return self.data[section].contains(option)
-        except KeyError, ValueError:
-            return False
-        
-    def get(self, section, option):
-        try:
-            return self.data[section].get(option)
-        except KeyError, ValueError:
+    def contains(self, keyName):
+        return keyName in self.data.keys()
+       
+    def get(self, keyName):
+        if self.contains(keyName) == False:
             return None
+        return self.data[keyName]
+    
 
 class vmgStruct:
     '''
         Defines the structure containing the entire data from the
         config file
-        Contains a dictionary of sections
     '''
     def __init__(self, dataDict):
         self.data = dataDict
@@ -44,15 +39,18 @@ class vmgStruct:
         for s in self.data.values():
             res += str(s)
         return res
-        
-    def contains(self, keyName):
-        return keyName in self.data.keys()
-    
-    def get(self, keyName):
-        if self.data.contains(keyName) == false:
+
+    def contains(self, section, option):
+        try:
+            return self.data[section].contains(option)
+        except KeyError, ValueError:
+            return False
+    def get(self, section, option):
+        try:
+            return self.data[section].get(option)
+        except KeyError, ValueError:
             return None
-        return self.data[keyName]
-    
+       
     def dump(self, dumpFile):
         '''
             Dump the serialized representation of the data
