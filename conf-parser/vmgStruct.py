@@ -45,6 +45,13 @@ class vmgStruct:
             return self.data[section].contains(option)
         except KeyError, ValueError:
             return False
+
+    def getSection(self, section):
+        try:
+            return self.data[section]
+        except KeyError, ValueError:
+            return None
+
     def get(self, section, option):
         try:
             return self.data[section].get(option)

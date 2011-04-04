@@ -6,3 +6,4 @@ with open('conf.dump', 'rb') as f:
     print entry.get('hardware','cpu_no')
     print entry.get('bla', 'bla')
     print entry.get('hardware', 'bla')
+    print entry.getSection('hardware')
