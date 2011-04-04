@@ -24,6 +24,9 @@ class vmgSection:
         if self.contains(keyName) == False:
             return None
         return self.data[keyName]
+		
+	def items(self):
+		return self.data.items()
     
 
 class vmgStruct:
@@ -48,7 +51,7 @@ class vmgStruct:
 
     def getSection(self, section):
         try:
-            return self.data[section]
+            return self.data[section].data
         except KeyError, ValueError:
             return None
 
