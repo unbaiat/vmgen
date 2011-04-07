@@ -1,0 +1,1 @@
+vmware-vdiskmanager -c -s 1024MB -a lsilogic -t 0 second-disk.vmdk
