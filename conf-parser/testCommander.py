@@ -1,6 +1,7 @@
 from vmgCommanderDummy import CommanderDummy
+from vmgCommanderVmware import CommanderVmware
 from vmgInstallerDummy import InstallerDummy
 
 i = InstallerDummy()
-c = CommanderDummy("conf.dump", i, None)
+c = CommanderVmware("conf.dump", i, None)
 c.setupVM()
