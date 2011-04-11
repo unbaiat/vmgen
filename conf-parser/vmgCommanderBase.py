@@ -16,10 +16,11 @@ class CommanderBase:
 
 	def setupVM(self):
 		self.setupHardware()
-		self.startVM()
-
-		self.connectToVM()
+		self.setupPartitions()
 		self.setupOperatingSystem()
+
+		self.startVM()
+		self.connectToVM()
 		self.setupConfigurations()
 		self.setupNetwork()
 #		self.setupUsers()
@@ -43,6 +44,9 @@ class CommanderBase:
 		pass
 		
 	def setupHardware(self):
+		pass
+
+	def setupPartitions(self):
 		pass
 
 	def setupOperatingSystem(self):
