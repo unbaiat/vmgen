@@ -13,7 +13,7 @@ class vmgSection:
     def __str__(self):
         s = self.name + ":\n"
         for k,v in self.data.items():
-            s += "\t" + k + " = " + v + "\n"
+            s += "\t" + str(k) + " = " + str(v) + "\n"
         s += "\n"
         return s
         
@@ -24,9 +24,6 @@ class vmgSection:
         if self.contains(keyName) == False:
             return None
         return self.data[keyName]
-		
-	def items(self):
-		return self.data.items()
     
 
 class vmgStruct:
@@ -51,7 +48,7 @@ class vmgStruct:
 
     def getSection(self, section):
         try:
-            return self.data[section].data
+            return self.data[section]
         except KeyError, ValueError:
             return None
 
