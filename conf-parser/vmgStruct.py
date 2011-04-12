@@ -10,12 +10,18 @@ class vmgSection:
         self.name = sectionName
         self.data = sectionDict
 
-    def __str__(self):
+    def __stringRepr(self, tab):
         s = self.name + ":\n"
         for k,v in self.data.items():
-            s += "\t" + str(k) + " = " + str(v) + "\n"
-        s += "\n"
+            if type(v) is str:
+                s += tab + str(k) + " = " + str(v)
+            else:
+                s += tab + v.__stringRepr(tab + "\t")
+            s += "\n"
         return s
+
+    def __str__(self):
+        return self.__stringRepr("\t")
         
     def contains(self, keyName):
         return keyName in self.data.keys()
