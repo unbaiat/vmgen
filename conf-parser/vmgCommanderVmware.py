@@ -2,6 +2,8 @@ from vmgCommanderBase import CommanderBase
 from vmgInstallerDummy import InstallerDummy
 from runCommands import *
 import shutil
+import os
+import time
 
 def writeNewLine(f):
 	f.write("\n")
@@ -16,13 +18,20 @@ def writeOption(f, key, value):
 	f.write(key + ' = "' + value + '"\n')
 
 def tryWriteOption(f, key, section, conf_key):
-	if (section.has_key(conf_key)):
+	if (section.contains(conf_key)):
 		writeOption(f, key, section.get(conf_key))
 
-vmaster_vmx_orig = "/home/vmgen/VMaster/VMaster.vmx"
-vmaster_vmx = "/home/vmgen/VMaster/VMaster_modified.vmx"
+vmaster_vmx_orig = "F:\\Virtual Machines\\VMaster\\VMaster.vmx"
+vmaster_vmx = "F:\\Virtual Machines\\VMaster\\VMaster_modified.vmx"
+#vmaster_vmx_orig = "/home/vmgen/VMaster/VMaster.vmx"
+#vmaster_vmx = "/home/vmgen/VMaster/VMaster_modified.vmx"
+base_install_dir = "F:\\Virtual Machines\\so-vm-linux-neon\\so_gentoo\\"
+new_machine_dir = os.getcwd() + "\\"
+
 mkfs = { "ntfs":"mkfs.ntfs", "ext2":"mkfs.ext2", "ext3":"mkfs.ext3", 
 		"ext4":"mkfs.ext4", "swap":"mkswap"}
+#base_disks = {"debian5-64":"debian6-64.vmdk"}
+base_disks = {"debian5-64":"so_gentoo.vmdk"}
 
 class CommanderVmware(CommanderBase):
 	def startVM(self):
@@ -40,99 +49,101 @@ class CommanderVmware(CommanderBase):
 	def setupHardware(self):
 		print "\nCreating the hardware configuration..."
 		section = self.data.getSection("hardware")
+		self.os = section.get("os")
 
 		with open("machine.vmx", "w") as f:
 			writeHeader(f, "/usr/bin/vmware")
 			writeOption(f, "config.version", "8")
 			writeOption(f, "virtualHW.version", "7")
 			tryWriteOption(f, "guestOs", section, "os")
-			tryWriteOption(f, "displayName", section, "vm_name")
+			tryWriteOption(f, "displayName", section, "vm_id")
 			tryWriteOption(f, "numvcpus", section, "num_cpu")
 			tryWriteOption(f, "memsize", section, "ram")
 			writeNewLine(f)
 			
 			# create hard disks
-			self.hdds = []
 			writeComment(f, "hard-disk")
-			self.num_hdd = int(section["num_hdd"])
-			for i in range(self.num_hdd):
-				i = str(i)
-				hdd_type = section["hdd" + i + "_type"]
+			self.hdd_list = section.get("hdds").data.values()
+			for hdd in self.hdd_list:
+				hdd_type = hdd.get("type")
 				if hdd_type == "scsi":
 					# only for scsi
-					idx = section["hdd" + i + "_scsi_index"]
-					writeOption(f, hdd_type + idx + ".present", "TRUE")
-					writeOption(f, hdd_type + idx + ".virtualDev", "lsilogic")
+					hdd_idx = hdd.get("scsi_index")
+					writeOption(f, hdd_type+hdd_idx + ".present", "TRUE")
+					writeOption(f, hdd_type+hdd_idx + ".virtualDev", "lsilogic")
 
-				hdd_size = section["hdd" + i + "_size"]
-				pos = section["hdd" + i + "_pos"]
-				hdd_name = section["hdd" + i + "_name"]
-				writeOption(f, hdd_type + pos + ".present", "TRUE")
-				writeOption(f, hdd_type + pos + ".fileName", hdd_name)
+				hdd_size = hdd.get("size")
+				hdd_pos = hdd.get("pos")
+				hdd_name = hdd.get("name")
+				writeOption(f, hdd_type+hdd_pos + ".present", "TRUE")
+				writeOption(f, hdd_type+hdd_pos + ".fileName", hdd_name)
 
-				executeCommand("vmware-vdiskmanager -c -s " + hdd_size + \
+				executeCommand("vmware-vdiskmanager -c -s " + hdd_size +
 						" -a lsilogic -t 0 " + hdd_name)
-				self.hdds.append(hdd_name)
 
 			writeNewLine(f)
 
 			# create cd drives
 			writeComment(f, "cd-rom")
-			for i in range(int(section["num_cd_drive"])):
-				i = str(i)
+			self.cd_list = section.get("cd_drives").data.values()
+			for cd in self.cd_list:
 				cd_type = "ide"
-				pos = section["cd" + i + "_pos"]
-				cd_path = section["cd" + i + "_path"]
-				writeOption(f, cd_type + pos + ".present", "TRUE")
-				writeOption(f, cd_type + pos + ".deviceType", "cdrom-image")
-				writeOption(f, cd_type + pos + ".fileName", cd_path)
-				tryWriteOption(f, cd_type + pos + ".startConnected", section,\
-						"cd" + i + "_connected")
+				cd_pos = cd.get("pos")
+				cd_path = cd.get("path")
+				writeOption(f, cd_type+cd_pos + ".present", "TRUE")
+				writeOption(f, cd_type+cd_pos + ".deviceType", "cdrom-image")
+				writeOption(f, cd_type+cd_pos + ".fileName", cd_path)
+				tryWriteOption(f, cd_type+cd_pos + ".startConnected", cd, 
+						"connected")
 			writeNewLine(f)
 
 			writeComment(f, "ethernet")
-			for i in range(int(section["num_eth"])):
+			self.eth_list = section.get("eths").data.values()
+			for i, eth in enumerate(self.eth_list):
 				i = str(i)
-				eth = "ethernet"
-				eth_type = section["eth" + i + "_type"]
-				writeOption(f, eth + i + ".present", "TRUE")
-				writeOption(f, eth + i + ".virtualDev", "e1000")
-				writeOption(f, eth + i + ".connectionType", eth_type)
-				tryWriteOption(f, eth + i + ".startConnected", section,\
-						"eth" + i + "_connected")
+				eth_name = "ethernet" + i
+				eth_type = eth.get("type")
+				writeOption(f, eth_name + ".present", "TRUE")
+				writeOption(f, eth_name + ".virtualDev", "e1000")
+				writeOption(f, eth_name + ".connectionType", eth_type)
+				tryWriteOption(f, eth_name + ".startConnected", eth, 
+						"connected")
 			writeNewLine(f)
 			writeComment(f, "auto generated by VMware")
 
 	def setupPartitions(self):
-		section = self.data.getSection("partitions")
+#		section = self.data.getSection("hardware")["hdds"]
 		# attach the hdds to VMaster
 		shutil.copy2(vmaster_vmx_orig, vmaster_vmx)
 		with open(vmaster_vmx, "a") as f:
-			for i, h in enumerate(self.hdds):
-				hdd_type = "scsi"
-				idx = str(i + 2)
-				pos = "0:" + idx
-				writeOption(f, hdd_type + pos + ".present", "TRUE")
-				writeOption(f, hdd_type + pos + ".fileName", h)
+			# attach the base_system hdd
+			writeOption(f, "scsi0:1" + ".present", "TRUE")
+			writeOption(f, "scsi0:1" + ".fileName", base_install_dir + 
+					base_disks[self.os])
+			for i, hdd in enumerate(self.hdd_list):
+				hdd_type = hdd.get("type")
+				hdd_pos = "0:" + str(i + 2)
+				writeOption(f, hdd_type+hdd_pos + ".present", "TRUE")
+				writeOption(f, hdd_type+hdd_pos + ".fileName", 
+						new_machine_dir + hdd.get("name"))
 
 		# start VMaster
-#		executeCommand("vmrun start " + vmaster_vmx)
-#		time.sleep(30)
+		executeCommand("vmrun start " + '"' + vmaster_vmx + '"')
+		time.sleep(30)
 
 		# setup the partitions
-		for i, h in enumerate(self.hdds):
-			hdd = "/dev/sd" + chr(ord("b") + i)
+		for i, hdd in enumerate(self.hdd_list):
+			hdd_name = "/dev/sd" + chr(ord("c") + i)
 			i = str(i)
 			idx_primary = 0
 			idx_logical = 4
 			last_off = 0
-			executeCommandSSH("parted -s " + hdd + " mklabel msdos")
-			for j in range(int(section["hdd" + i + "_num_part"])):
+			executeCommandSSH("parted -s " + hdd_name + " mklabel msdos")
+			self.part_list = hdd.get("partitions").data.values()
+			for j, part in enumerate(self.part_list):
 				j = str(j)
-				part = "hdd" + i + "_part" + j
-
-				part_size = int(section[part + "_size"])
-				part_type = section[part + "_type"]
+				part_size = int(part.get("size"))
+				part_type = part.get("type")
 
 				# update the next index
 				if part_type == "primary" or part_type == "extended":
@@ -142,20 +153,27 @@ class CommanderVmware(CommanderBase):
 					idx_logical += 1
 					crt_idx = idx_logical
 
-				executeCommandSSH("parted -s " + hdd + " mkpart " + \
-						part_type + " " + str(last_off) + " " + \
+				executeCommandSSH("parted -s " + hdd_name + " mkpart " + 
+						part_type + " " + str(last_off) + " " + 
 						str(last_off + part_size))
 
-				executeCommandSSH("hdparm -z " + hdd)
+				executeCommandSSH("hdparm -z " + hdd_name)
 
 				if part_type != "extended":
 					last_off += part_size
-					part_fs = section[part + "_fs"]
-					executeCommandSSH(mkfs[part_fs] + " " + hdd + str(crt_idx))
+					part_fs = part.get("fs")
+					executeCommandSSH(mkfs[part_fs] + " " + hdd_name 
+							+ str(crt_idx))
 
 
 	def setupOperatingSystem(self):
 		print "\nInstalling the operating system..."
+		executeCommandSSH("parted -s /dev/sdc set 1 boot on")
+		executeCommandSSH("mount /dev/sdb1 /mnt/old_hdd")
+		executeCommandSSH("mount /dev/sdc1 /mnt/new_hdd")
+		executeCommandSSH("cp -ax /mnt/old_hdd/* /mnt/new_hdd/")
+		executeCommandSSH("grub-setup -d /mnt/new_hdd/boot/grub /dev/sdc")
+		
 
 	def setupConfigurations(self):
 		print "\nConfiguring system settings..."
@@ -173,11 +191,11 @@ class CommanderVmware(CommanderBase):
 		print "\nAdding users..."
 		section = self.data.getSection("users")
 		for i, u in enumerate(section.get("users")):
-			print "Add user #", i
+			print "Add user #"+i
 			print "\tName: ", u["name"]
 			print "\tPassword: ", u["passwd"]
-			print "\tGroups: ", u["groups"]
-			print "\tHome directory: ", u["directory"]
+			print "\tGroup: ", u["group"]
+			print "\tHome directory: ", u["home_dir"]
 			print "\tPermissions: ", u["perm"]
 	
 	def setupServices(self):
