@@ -5,6 +5,7 @@ import shutil
 import os
 import time
 
+
 def writeNewLine(f):
 	f.write("\n")
 
@@ -21,17 +22,20 @@ def tryWriteOption(f, key, section, conf_key):
 	if (section.contains(conf_key)):
 		writeOption(f, key, section.get(conf_key))
 
-vmaster_vmx_orig = "F:\\Virtual Machines\\VMaster\\VMaster.vmx"
-vmaster_vmx = "F:\\Virtual Machines\\VMaster\\VMaster_modified.vmx"
-#vmaster_vmx_orig = "/home/vmgen/VMaster/VMaster.vmx"
-#vmaster_vmx = "/home/vmgen/VMaster/VMaster_modified.vmx"
-base_install_dir = "F:\\Virtual Machines\\so-vm-linux-neon\\so_gentoo\\"
-new_machine_dir = os.getcwd() + "\\"
+#vmaster_vmx_orig = "F:\\Virtual Machines\\VMaster\\VMaster.vmx"
+#vmaster_vmx = "F:\\Virtual Machines\\VMaster\\VMaster_modified.vmx"
+#base_install_dir = "F:\\Virtual Machines\\so-vm-linux-neon\\so_gentoo\\"
+#new_machine_dir = os.getcwd() + "\\"
+vmaster_vmx_orig = "/home/vmgen/VMaster/VMaster.vmx"
+vmaster_vmx = "/home/vmgen/VMaster/VMaster_modified.vmx"
+base_install_dir = "/iso-images/"
+new_machine_dir = os.getcwd() + "/"
 
 mkfs = { "ntfs":"mkfs.ntfs", "ext2":"mkfs.ext2", "ext3":"mkfs.ext3", 
 		"ext4":"mkfs.ext4", "swap":"mkswap"}
 #base_disks = {"debian5-64":"debian6-64.vmdk"}
-base_disks = {"debian5-64":"so_gentoo.vmdk"}
+base_disks = { "debian5-64":"so_gentoo.vmdk",
+			"ubuntu-64":"ubuntu-64.vmdk" }
 
 class CommanderVmware(CommanderBase):
 	def startVM(self):
@@ -137,7 +141,7 @@ class CommanderVmware(CommanderBase):
 			i = str(i)
 			idx_primary = 0
 			idx_logical = 4
-			last_off = 0
+			last_off = 1
 			executeCommandSSH("parted -s " + hdd_name + " mklabel msdos")
 			self.part_list = hdd.get("partitions").data.values()
 			for j, part in enumerate(self.part_list):
@@ -173,6 +177,12 @@ class CommanderVmware(CommanderBase):
 		executeCommandSSH("mount /dev/sdc1 /mnt/new_hdd")
 		executeCommandSSH("cp -ax /mnt/old_hdd/* /mnt/new_hdd/")
 		executeCommandSSH("grub-setup -d /mnt/new_hdd/boot/grub /dev/sdc")
+
+
+		uuid_old = executeCommandSSH('blkid /dev/sdb1')[1].split('"')[1]
+		executeCommandSSH("tune2fs -U " + uuid_old + " /dev/sdc1")
+
+		
 		
 
 	def setupConfigurations(self):
