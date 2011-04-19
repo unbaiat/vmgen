@@ -29,13 +29,33 @@ def tryWriteOption(f, key, section, conf_key):
 vmaster_vmx_orig = "/home/vmgen/VMaster/VMaster.vmx"
 vmaster_vmx = "/home/vmgen/VMaster/VMaster_modified.vmx"
 base_install_dir = "/iso-images/"
-new_machine_dir = os.getcwd() + "/"
+new_machine_dir = os.getcwd() + "/machines/"
 
 mkfs = { "ntfs":"mkfs.ntfs", "ext2":"mkfs.ext2", "ext3":"mkfs.ext3", 
 		"ext4":"mkfs.ext4", "swap":"mkswap"}
 #base_disks = {"debian5-64":"debian6-64.vmdk"}
-base_disks = { "debian5-64":"so_gentoo.vmdk",
-			"ubuntu-64":"ubuntu-64.vmdk" }
+base_disks = {
+			"debian5-64":{ 
+				"name":"so_gentoo.vmdk",
+				"type":"lsilogic",
+				"mbr":"grub2",
+				"fs":"ext4"},
+			"ubuntu-64":{
+				"name":"ubuntu-64.vmdk",
+				"type":"lsilogic",
+				"mbr":"grub2",
+				"fs":"ext4"},
+			"windows7-64":{
+				"name":"Win7-64.vmdk",
+				"type":"lsilogic",
+				"mbr":"win",
+				"fs":"ntfs"},
+			"winxppro":{
+				"name":"WinXP.vmdk",
+				"type":"ide",
+				"mbr":"win",
+				"fs":"ntfs"}
+			}
 
 class CommanderVmware(CommanderBase):
 	def startVM(self):
@@ -54,8 +74,8 @@ class CommanderVmware(CommanderBase):
 		print "\nCreating the hardware configuration..."
 		section = self.data.getSection("hardware")
 		self.os = section.get("os")
-
-		with open("machine.vmx", "w") as f:
+		vmx_file = new_machine_dir + "machine.vmx"
+		with open(vmx_file, "w") as f:
 			writeHeader(f, "/usr/bin/vmware")
 			writeOption(f, "config.version", "8")
 			writeOption(f, "virtualHW.version", "7")
@@ -72,9 +92,12 @@ class CommanderVmware(CommanderBase):
 				hdd_type = hdd.get("type")
 				if hdd_type == "scsi":
 					# only for scsi
+					adapter = "lsilogic"
 					hdd_idx = hdd.get("scsi_index")
 					writeOption(f, hdd_type+hdd_idx + ".present", "TRUE")
-					writeOption(f, hdd_type+hdd_idx + ".virtualDev", "lsilogic")
+					writeOption(f, hdd_type+hdd_idx + ".virtualDev", adapter)
+				else:
+					adapter = "ide"
 
 				hdd_size = hdd.get("size")
 				hdd_pos = hdd.get("pos")
@@ -83,7 +106,8 @@ class CommanderVmware(CommanderBase):
 				writeOption(f, hdd_type+hdd_pos + ".fileName", hdd_name)
 
 				executeCommand("vmware-vdiskmanager -c -s " + hdd_size +
-						" -a lsilogic -t 0 " + hdd_name)
+						" -a " + adapter + " -t 0 " + 
+						new_machine_dir + hdd_name)
 
 			writeNewLine(f)
 
@@ -121,12 +145,22 @@ class CommanderVmware(CommanderBase):
 		shutil.copy2(vmaster_vmx_orig, vmaster_vmx)
 		with open(vmaster_vmx, "a") as f:
 			# attach the base_system hdd
-			writeOption(f, "scsi0:1" + ".present", "TRUE")
-			writeOption(f, "scsi0:1" + ".fileName", base_install_dir + 
-					base_disks[self.os])
+			disk_name = base_install_dir + base_disks[self.os]["name"]
+			disk_type = base_disks[self.os]["type"]
+
+			if disk_type == "ide":
+				prefix = "ide0:0"
+			else:
+				prefix = "scsi0:1"
+
+			writeOption(f, prefix + ".present", "TRUE")
+			writeOption(f, prefix + ".fileName", disk_name)
 			for i, hdd in enumerate(self.hdd_list):
 				hdd_type = hdd.get("type")
-				hdd_pos = "0:" + str(i + 2)
+				if hdd_type == "scsi":
+					hdd_pos = "0:" + str(i + 2)
+				else:
+					hdd_pos = "0:" + str(i + 1)
 				writeOption(f, hdd_type+hdd_pos + ".present", "TRUE")
 				writeOption(f, hdd_type+hdd_pos + ".fileName", 
 						new_machine_dir + hdd.get("name"))
@@ -166,21 +200,30 @@ class CommanderVmware(CommanderBase):
 				if part_type != "extended":
 					last_off += part_size
 					part_fs = part.get("fs")
-					executeCommandSSH(mkfs[part_fs] + " " + hdd_name 
-							+ str(crt_idx))
+#					executeCommandSSH(mkfs[part_fs] + " " + hdd_name 
+#							+ str(crt_idx))
 
 
 	def setupOperatingSystem(self):
 		print "\nInstalling the operating system..."
 		executeCommandSSH("parted -s /dev/sdc set 1 boot on")
-		executeCommandSSH("mount /dev/sdb1 /mnt/old_hdd")
-		executeCommandSSH("mount /dev/sdc1 /mnt/new_hdd")
-		executeCommandSSH("cp -ax /mnt/old_hdd/* /mnt/new_hdd/")
-		executeCommandSSH("grub-setup -d /mnt/new_hdd/boot/grub /dev/sdc")
+		if base_disks[self.os]["fs"] == "ntfs":
+			# ntfs
+			executeCommandSSH("ntfsclone --overwrite /dev/sdc1 /dev/sdb1")
+		else:
+			# other (ext*)
+			executeCommandSSH("mount /dev/sdb1 /mnt/old_hdd")
+			executeCommandSSH("mount /dev/sdc1 /mnt/new_hdd")
+			executeCommandSSH("cp -ax /mnt/old_hdd/* /mnt/new_hdd/")
 
+			uuid_old = executeCommandSSH('blkid /dev/sdb1')[1].split('"')[1]
+			executeCommandSSH("tune2fs -U " + uuid_old + " /dev/sdc1")
 
-		uuid_old = executeCommandSSH('blkid /dev/sdb1')[1].split('"')[1]
-		executeCommandSSH("tune2fs -U " + uuid_old + " /dev/sdc1")
+		if base_disks[self.os]["mbr"] == "grub2":
+			executeCommandSSH("grub-setup -d /mnt/new_hdd/boot/grub /dev/sdc")
+		else:
+			executeCommandSSH("dd if=/dev/sdb of=/dev/sdc bs=446 count=1")
+
 
 		
 		
