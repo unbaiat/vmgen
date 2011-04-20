@@ -31,8 +31,23 @@ vmaster_vmx = "/home/vmgen/VMaster/VMaster_modified.vmx"
 base_install_dir = "/iso-images/"
 new_machine_dir = os.getcwd() + "/machines/"
 
-mkfs = { "ntfs":"mkfs.ntfs", "ext2":"mkfs.ext2", "ext3":"mkfs.ext3", 
-		"ext4":"mkfs.ext4", "swap":"mkswap"}
+mkfs = { 
+		"ntfs":{
+			"cmd":"mkfs.ntfs", 
+			"id":"7"},
+		"ext2":{
+			"cmd":"mkfs.ext2",
+			"id":"83"},
+		"ext3":{
+			"cmd":"mkfs.ext3",
+			"id":"83"},
+		"ext4":{
+			"cmd":"mkfs.ext4",
+			"id":"83"},
+		"swap":{
+			"cmd":"mkswap",
+			"id":"82"}
+		}
 #base_disks = {"debian5-64":"debian6-64.vmdk"}
 base_disks = {
 			"debian5-64":{ 
@@ -93,6 +108,7 @@ class CommanderVmware(CommanderBase):
 				if hdd_type == "scsi":
 					# only for scsi
 					adapter = "lsilogic"
+					adapter = "lsisas1068"
 					hdd_idx = hdd.get("scsi_index")
 					writeOption(f, hdd_type+hdd_idx + ".present", "TRUE")
 					writeOption(f, hdd_type+hdd_idx + ".virtualDev", adapter)
@@ -200,8 +216,10 @@ class CommanderVmware(CommanderBase):
 				if part_type != "extended":
 					last_off += part_size
 					part_fs = part.get("fs")
-#					executeCommandSSH(mkfs[part_fs] + " " + hdd_name 
-#							+ str(crt_idx))
+					executeCommandSSH("sfdisk --change-id " + hdd_name + " "
+							+ str(crt_idx) + " " + mkfs[part_fs]["id"])
+					executeCommandSSH(mkfs[part_fs]["cmd"] + " " + hdd_name 
+							+ str(crt_idx))
 
 
 	def setupOperatingSystem(self):
@@ -210,6 +228,7 @@ class CommanderVmware(CommanderBase):
 		if base_disks[self.os]["fs"] == "ntfs":
 			# ntfs
 			executeCommandSSH("ntfsclone --overwrite /dev/sdc1 /dev/sdb1")
+			executeCommandSSH("ntfsresize --force /dev/sdc1")
 		else:
 			# other (ext*)
 			executeCommandSSH("mount /dev/sdb1 /mnt/old_hdd")
