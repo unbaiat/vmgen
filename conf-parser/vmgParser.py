@@ -3,10 +3,20 @@ from configobj import ConfigObj
 from vmgStruct import vmgSection, vmgStruct
 
 class vmgParser():
+    '''
+        Parse a configuration file (INI format) and build
+        a structure containing the data.
+        Comments(#), empty line, spaces are allowes
+        '''
+        
     def __init__(self, infile):
         self.infile = infile
 
     def __parse_section(self, config):
+        '''
+            Retrieve the subsections, recursively.
+            Internal purposes.
+            '''
         sectDict = {}
         for key in config.keys():
             if type(config[key]) is str:
@@ -16,6 +26,9 @@ class vmgParser():
         return sectDict
 
     def parse(self):
+        '''
+            Use the configObj library to parse the file.
+            '''
         config = ConfigObj(infile=self.infile, raise_errors=True, file_error=True)
         rootDict = {}
         for sect in config.keys():
@@ -23,6 +36,9 @@ class vmgParser():
         self.struct = vmgStruct(rootDict)
 
     def dump(self, dumpFile):
+        '''
+            Dump the structure to a file.
+            '''
         try:
             self.struct.dump(dumpFile)
             return dumpFile
@@ -30,6 +46,9 @@ class vmgParser():
             print 'Cannot dump parser structure'
 
     def show(self):
+        '''
+            Print the data structure.
+            '''
         try:
             print self.struct
         except Exception:

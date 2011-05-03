@@ -2,15 +2,19 @@ import pickle
 
 class vmgSection:
     '''
-        Defines a section of the config file
-        The pairs (key, value) are stored in a dictionary
-        User contains and get to access data
+        Defines a section of the config file.
+        The pairs (key, value) are stored in a dictionary.
+        Use contains and get to access data.
     '''
     def __init__(self, sectionName, sectionDict):
         self.name = sectionName
         self.data = sectionDict
 
     def __stringRepr(self, tab):
+        '''
+            String representation of the current section.
+            Used internally for the actual print function.
+            '''
         s = self.name + ":\n"
         for k,v in self.data.items():
             if type(v) is str:
@@ -32,13 +36,16 @@ class vmgSection:
         return self.data[keyName]
 
     def items(self):
+        '''
+            Retrieve the data dictionary.
+            '''
 	return self.data.items()
     
 
 class vmgStruct:
     '''
         Defines the structure containing the entire data from the
-        config file
+        config file as a dictionary of sections.
     '''
     def __init__(self, dataDict):
         self.data = dataDict
