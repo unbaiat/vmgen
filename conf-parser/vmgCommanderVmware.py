@@ -4,8 +4,10 @@ from runCommands import *
 import shutil
 import os
 import time
+from vmgLogging import *
 
 """ Functions to write lines in a .vmx file. """
+log = logging.getLogger("vmgen.vmgCommanderVmware")
 
 def writeNewLine(f):
 	""" Write a new line in the file f. """
@@ -103,23 +105,23 @@ base_disks = {
 class CommanderVmware(CommanderBase):
 	def startVM(self):
 		"""Override"""
-		print "\nStarting the VM..."
+		log.info("Starting the VM...")
 
 	def shutdownVM(self):
 		"""Override"""
-		print "\nShutting down the VM..."
+		log.info("Shutting down the VM...")
 
 	def connectToVM(self):
 		"""Override"""
-		print "\nEstablishing connection to the VM..."
+		log.info("Establishing connection to the VM...")
 
 	def disconnectFromVM(self):
 		"""Override"""
-		print "\nTerminating connection to the VM..."
+		log.info("Terminating connection to the VM...")
 
 	def setupHardware(self):
 		"""Override"""
-		print "\nCreating the hardware configuration..."
+		log.info("Creating the hardware configuration...")
 		section = self.data.getSection("hardware")
 		self.os = section.get("os")
 		vmx_file = new_machine_dir + "machine.vmx"
@@ -135,6 +137,7 @@ class CommanderVmware(CommanderBase):
 			writeNewLine(f)
 			
 			# create hard disks
+			log.info("\tCreating the hard disks...")
 			writeComment(f, "hard-disk")
 			self.hdd_list = section.get("hdds").data.values()
 			for hdd in self.hdd_list:
@@ -161,6 +164,7 @@ class CommanderVmware(CommanderBase):
 			writeNewLine(f)
 
 			# create cd drives
+			log.info("\tCreating the cd-drives...")
 			writeComment(f, "cd-rom")
 			self.cd_list = section.get("cd_drives").data.values()
 			for cd in self.cd_list:
@@ -175,6 +179,7 @@ class CommanderVmware(CommanderBase):
 			writeNewLine(f)
 
 			# create network interfaces
+			log.info("\tCreating the network interfaces...")
 			writeComment(f, "ethernet")
 			self.eth_list = section.get("eths").data.values()
 			for i, eth in enumerate(self.eth_list):
@@ -199,34 +204,37 @@ class CommanderVmware(CommanderBase):
 	def setupPartitions(self):
 		"""Override"""
 		# attach the hdds to VMaster
-		shutil.copy2(vmaster_vmx_orig, vmaster_vmx)
-		with open(vmaster_vmx, "a") as f:
-			# attach the base_system hdd
-			disk_name = base_install_dir + base_disks[self.os]["name"]
-			disk_type = base_disks[self.os]["type"]
-
-			if disk_type == "ide":
-				prefix = "ide0:0"
-			else:
-				prefix = "scsi0:1"
-
-			writeOption(f, prefix + ".present", "TRUE")
-			writeOption(f, prefix + ".fileName", disk_name)
-			for i, hdd in enumerate(self.hdd_list):
-				hdd_type = hdd.get("type")
-				if hdd_type == "scsi":
-					hdd_pos = "0:" + str(i + 2)
-				else:
-					hdd_pos = "0:" + str(i + 1)
-				writeOption(f, hdd_type+hdd_pos + ".present", "TRUE")
-				writeOption(f, hdd_type+hdd_pos + ".fileName", 
-						new_machine_dir + hdd.get("name"))
+		log.info("\tAttach the new hard disks to the VMaster...")
+##		shutil.copy2(vmaster_vmx_orig, vmaster_vmx)
+##		with open(vmaster_vmx, "a") as f:
+##			# attach the base_system hdd
+##			disk_name = base_install_dir + base_disks[self.os]["name"]
+##			disk_type = base_disks[self.os]["type"]
+##
+##			if disk_type == "ide":
+##				prefix = "ide0:0"
+##			else:
+##				prefix = "scsi0:1"
+##
+##			writeOption(f, prefix + ".present", "TRUE")
+##			writeOption(f, prefix + ".fileName", disk_name)
+##			for i, hdd in enumerate(self.hdd_list):
+##				hdd_type = hdd.get("type")
+##				if hdd_type == "scsi":
+##					hdd_pos = "0:" + str(i + 2)
+##				else:
+##					hdd_pos = "0:" + str(i + 1)
+##				writeOption(f, hdd_type+hdd_pos + ".present", "TRUE")
+##				writeOption(f, hdd_type+hdd_pos + ".fileName", 
+##						new_machine_dir + hdd.get("name"))
 
 		# start VMaster
+		log.info("\tPowering up the VMaster machine...")
 		executeCommand("vmrun start " + '"' + vmaster_vmx + '"')
-		time.sleep(30)
+##		time.sleep(30)
 
 		# setup the partitions
+		log.info("\tPartitioning the new disks...")
 		for i, hdd in enumerate(self.hdd_list):
 			hdd_name = "/dev/sd" + chr(ord("c") + i)
 			i = str(i)
@@ -266,8 +274,9 @@ class CommanderVmware(CommanderBase):
 
 	def setupOperatingSystem(self):
 		"""Override"""
-		print "\nInstalling the operating system..."
+		log.info("Installing the operating system...")
 		executeCommandSSH("parted -s /dev/sdc set 1 boot on")
+		log.info("\tCloning the base system partition...")
 		if base_disks[self.os]["fs"] == "ntfs":
 			# ntfs
 			executeCommandSSH("ntfsclone --overwrite /dev/sdc1 /dev/sdb1")
@@ -279,9 +288,10 @@ class CommanderVmware(CommanderBase):
 			executeCommandSSH("cp -ax /mnt/old_hdd/* /mnt/new_hdd/")
 
 			# clone the UUID of the base partition to the new one
-			uuid_old = executeCommandSSH('blkid /dev/sdb1')[1].split('"')[1]
+			uuid_old = "aa" #executeCommandSSH('blkid /dev/sdb1')[1].split('"')[1]
 			executeCommandSSH("tune2fs -U " + uuid_old + " /dev/sdc1")
 
+		log.info("\tUpdate the MBR on the new system disk...")
 		# setup the MBR on the new system
 		if base_disks[self.os]["mbr"] == "grub2":
 			# GRUB2
@@ -294,45 +304,45 @@ class CommanderVmware(CommanderBase):
 
 	def setupConfigurations(self):
 		"""Override"""
-		print "\nConfiguring system settings..."
+		log.info("Configuring system settings...")
 		section = self.data.getSection("config")
 		for k, v in section.items():
-			print k, "=", v
+			log.info(str(k) + "=" + str(v))
 
 	def setupNetwork(self):	
 		"""Override"""
-		print "\nSetting up the network configurations..."
+		log.info("Setting up the network configurations...")
 		section = self.data.getSection("network")
 		for k, v in section.items():
-			print k, "=", v
+			log.info(str(k) + "=" + str(v))
 
 	def setupUsers(self):
 		"""Override"""
-		print "\nAdding users..."
+		log.info("Adding users...")
 		section = self.data.getSection("users")
 		for i, u in enumerate(section.get("users")):
-			print "Add user #"+i
-			print "\tName: ", u["name"]
-			print "\tPassword: ", u["passwd"]
-			print "\tGroup: ", u["group"]
-			print "\tHome directory: ", u["home_dir"]
-			print "\tPermissions: ", u["perm"]
+			log.info("Add user #"+i)
+			log.info("\tName: " + u["name"])
+			log.info("\tPassword: ", u["passwd"])
+			log.info("\tGroup: " + u["group"])
+			log.info("\tHome directory: " + u["home_dir"])
+			log.info("\tPermissions: " + u["perm"])
 	
 	def setupServices(self):
 		"""Override"""
-		print "\nInstalling services..."
+		log.info("Installing services...")
 		section = self.data.getSection("services")
 		self.installPrograms(section)
 
 	def setupDeveloperTools(self):
 		"""Override"""
-		print "\nInstalling developer tools..."
+		log.info("Installing developer tools...")
 		section = self.data.getSection("devel")
 		self.installPrograms(section)
 
 	def setupGuiTools(self):
 		"""Override"""
-		print "\nInstalling GUI tools..."
+		log.info("Installing GUI tools...")
 		section = self.data.getSection("gui")
 		self.installPrograms(section)
 	

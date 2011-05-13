@@ -66,18 +66,23 @@ class CommanderBase:
 		self.shutdownVM()
 
 	def startVM(self):
+		""" Power on the VM. """
 		pass
 
 	def shutdownVM(self):
+		""" Shutdown the VM. """
 		pass
 
 	def connectToVM(self):
+		""" Connect to the new VM. """
 		pass
 
 	def disconnectFromVM(self):
+		""" Disconnect from the new VM. """
 		pass
 		
 	def setupHardware(self):
+		""" Create the hardware for the new VM. """
 		pass
 
 	def setupPartitions(self):

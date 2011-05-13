@@ -1,7 +1,9 @@
 from subprocess import Popen, PIPE
 import shlex
+from vmgLogging import *
 
 """ Execute external commands. """
+log = logging.getLogger("vmgen.runCommands")
 
 def executeCommand(command):
 	""" 
@@ -10,11 +12,14 @@ def executeCommand(command):
 		Return the exit code and the output of the command.
 	"""
 	args = shlex.split(command)
-	print "Execute: ", args
-	p = Popen(args, stdout=PIPE)
-	s = p.communicate()
-	print p.returncode
-	return (p.returncode, s[0])
+	log.debug("Executing command: " + command)
+#	print "Execute: ", args
+#	p = Popen(args, stdout=PIPE)
+#	s = p.communicate()
+#	print p.returncode
+#	return (p.returncode, s[0])
+
+	return (0, "")
 
 def executeCommandSSH(command):
 	""" 
