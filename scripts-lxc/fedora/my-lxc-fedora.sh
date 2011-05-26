@@ -13,6 +13,12 @@ gateway=192.168.1.1
 dns=192.168.1.1
 passwd=root
 
+path=$1
+name=$2
+version=$3
+arch=$4
+passwd=$5
+
 # set needed variables
 vmpath=$path/$name
 rootfs=$vmpath/rootfs.$name
@@ -20,7 +26,7 @@ fstab=$vmpath/fstab.$name
 config=$vmpath/config.$name
 
 # create folders
-#mkdir $vmpath
+mkdir -p $vmpath
 ##cd $vmpath
 
 # download the minimal OS
@@ -57,14 +63,8 @@ echo "======= generate config file ====="
 cat << EOF > $config
 lxc.utsname = $name
 lxc.tty = 4
-lxc.network.type = veth
-lxc.network.flags = up
-lxc.network.link = br0
-lxc.network.name = eth0
-lxc.network.mtu = 1500
-lxc.network.ipv4 = $ip
-lxc.rootfs = $rootfs
-lxc.mount = $fstab
+lxc.rootfs = rootfs.$name
+lxc.mount = fstab.$name
 lxc.cgroup.devices.deny = a
 # /dev/null and zero
 lxc.cgroup.devices.allow = c 1:3 rwm
@@ -84,15 +84,17 @@ lxc.cgroup.devices.allow = c 5:2 rwm
 lxc.cgroup.devices.allow = c 254:0 rwm
 EOF
 
+cat eth.tmp >> $config
+
 echo "======= generate fstab ====="
 #generate fstab file
 cat << EOF > $fstab
-none $rootfs/dev/pts devpts defaults 0 0
-none $rootfs/proc proc defaults 0 0
-none $rootfs/sys sysfs defaults 0 0
-#none $rootfs/var/lock tmpfs defaults 0 0
-#none $rootfs/var/run tmpfs defaults 0 0
-#/etc/resolv.conf $rootfs/etc/resolv.conf none bind 0 0
+none rootfs.$name/dev/pts devpts defaults 0 0
+none rootfs.$name/proc proc defaults 0 0
+none rootfs.$name/sys sysfs defaults 0 0
+#none rootfs.$name/var/lock tmpfs defaults 0 0
+#none rootfs.$name/var/run tmpfs defaults 0 0
+#/etc/resolv.conf rootfs.$name/etc/resolv.conf none bind 0 0
 EOF
 
 echo "======= cleanup init scripts ====="
@@ -114,7 +116,7 @@ cat << EOF > $rootfs/etc/rc.d/rc.$name
 find /var/run -name '*pid' -print0 | xargs -0 /bin/rm
 
 route add default gw $gateway
-echo > /etc/resolv.conf nameserver $dns
+#echo > /etc/resolv.conf nameserver $dns
 
 /etc/init.d/rsyslog start &
 /etc/init.d/iptables start &
