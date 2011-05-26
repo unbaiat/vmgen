@@ -1,18 +1,25 @@
 #!/bin/bash
 
-#echo -n "Container path: "; read path
-#echo -n "Container name: "; read name
-#echo -n "Fedora version: "; read version
-#echo -n "IP address: "; read ip
+# ./my-lxc-debian.sh path name version arch passwd ip gw dns
+# ./my-lxc-debian.sh /lxc lxc-lenny lenny amd64 root 192.168.1.10
 
 path=/lxc
 name=lenny
 version=lenny
 arch=amd64
-ip=192.168.1.42
+ip=192.168.1.42/24
 gateway=192.168.1.1
 dns=192.168.1.1
 passwd=root
+
+path=$1
+name=$2
+version=$3
+arch=$4
+passwd=$5
+ip=$6
+#gateway=$6
+#dns=$7
 
 # set needed variables
 vmpath=$path/$name
@@ -53,14 +60,14 @@ echo "======= generate config file ====="
 cat << EOF > $config
 lxc.utsname = $name
 lxc.tty = 4
-lxc.network.type = veth
-lxc.network.flags = up
-lxc.network.link = br0
-lxc.network.name = eth0
-lxc.network.mtu = 1500
-lxc.network.ipv4 = $ip/24
-lxc.rootfs = $rootfs
-lxc.mount = $fstab
+#lxc.network.type = veth
+#lxc.network.flags = up
+#lxc.network.link = br0
+#lxc.network.name = eth0
+#lxc.network.mtu = 1500
+#lxc.network.ipv4 = $ip
+lxc.rootfs = rootfs.$name
+lxc.mount = mountfs.$name
 lxc.cgroup.devices.deny = a
 # /dev/null and zero
 lxc.cgroup.devices.allow = c 1:3 rwm

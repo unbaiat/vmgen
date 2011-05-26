@@ -1,6 +1,7 @@
 from subprocess import Popen, PIPE
 import shlex
 from vmgLogging import *
+import os
 
 """ Execute external commands. """
 log = logging.getLogger("vmgen.runCommands")
@@ -13,11 +14,11 @@ def executeCommand(command):
 	"""
 	args = shlex.split(command)
 	log.debug("Executing command: " + command)
-#	print "Execute: ", args
-#	p = Popen(args, stdout=PIPE)
-#	s = p.communicate()
-#	print p.returncode
-#	return (p.returncode, s[0])
+	print "Execute: ", args
+	p = Popen(args, stdout=PIPE)
+	s = p.communicate()
+	print p.returncode
+	return (p.returncode, s[0])
 
 	return (0, "")
 
@@ -29,6 +30,16 @@ def executeCommandSSH(command):
 	"""
 		
 	return executeCommand("ssh " + key + " " + user_host + " " + command)
+
+def copyFilesToVM(files, host):
+	src = ""
+	for f in files:
+		src += f + " "
+	return executeCommand("scp " + key + " " + src + host + ":")
+
+def setUserHost(s):
+	global user_host
+	user_host = s
 
 user_host = "root@vmaster"
 key = "-i vmaster_key.private"

@@ -22,7 +22,7 @@ apt-get install -y adduser apt-utils iproute netbase nano openssh-blacklist open
 # Change "192.168.0.60" to the ip address you wish to assign to the container
 echo "$hostname" > /etc/hostname
 echo "127.0.0.1 localhost $hostname" > /etc/hosts
-echo "$ip $hostname" >> /etc/hosts
+#echo "$ip $hostname" >> /etc/hosts
 
 # .Fix. mtab
 rm /etc/mtab
