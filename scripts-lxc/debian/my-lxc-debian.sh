@@ -17,7 +17,7 @@ name=$2
 version=$3
 arch=$4
 passwd=$5
-ip=$6
+#ip=$6
 #gateway=$6
 #dns=$7
 
@@ -60,14 +60,8 @@ echo "======= generate config file ====="
 cat << EOF > $config
 lxc.utsname = $name
 lxc.tty = 4
-#lxc.network.type = veth
-#lxc.network.flags = up
-#lxc.network.link = br0
-#lxc.network.name = eth0
-#lxc.network.mtu = 1500
-#lxc.network.ipv4 = $ip
 lxc.rootfs = rootfs.$name
-lxc.mount = mountfs.$name
+lxc.mount = fstab.$name
 lxc.cgroup.devices.deny = a
 # /dev/null and zero
 lxc.cgroup.devices.allow = c 1:3 rwm
@@ -87,15 +81,17 @@ lxc.cgroup.devices.allow = c 5:2 rwm
 lxc.cgroup.devices.allow = c 254:0 rwm
 EOF
 
+cat eth.tmp >> $config
+
 echo "======= generate fstab ====="
 #generate fstab file
 cat << EOF > $fstab
-none $rootfs/dev/pts devpts defaults 0 0
-none $rootfs/proc proc defaults 0 0
-none $rootfs/sys sysfs defaults 0 0
-none $rootfs/var/lock tmpfs defaults 0 0
-none $rootfs/var/run tmpfs defaults 0 0
-/etc/resolv.conf $rootfs/etc/resolv.conf none bind 0 0
+none rootfs.$name/dev/pts devpts defaults 0 0
+none rootfs.$name/proc proc defaults 0 0
+none rootfs.$name/sys sysfs defaults 0 0
+none rootfs.$name/var/lock tmpfs defaults 0 0
+none rootfs.$name/var/run tmpfs defaults 0 0
+/etc/resolv.conf rootfs.$name/etc/resolv.conf none bind 0 0
 EOF
 
 echo "======= cleanup init scripts ====="

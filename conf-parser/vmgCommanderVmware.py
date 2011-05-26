@@ -5,33 +5,10 @@ import shutil
 import os
 import time
 from vmgLogging import *
+from writeFormat import *
 
 """ Functions to write lines in a .vmx file. """
 log = logging.getLogger("vmgen.vmgCommanderVmware")
-
-def writeNewLine(f):
-	""" Write a new line in the file f. """
-	f.write("\n")
-
-def writeComment(f, text):
-	""" Write text in the file f, as a comment. """
-	f.write("# " + text + "\n")
-
-def writeHeader(f, text):
-	""" Write text in the file f, as the interpreter path. """
-	f.write("#!" + text + "\n")
-
-def writeOption(f, key, value):
-	""" Write a line of the form "key = value" in the file f. """
-	f.write(key + ' = "' + value + '"\n')
-
-def tryWriteOption(f, key, section, conf_key):
-	""" 
-		Check if there exists the key conf_key in section and if does, get the
-		value of it and write a corresponding option line in the file f.
-	"""
-	if (section.contains(conf_key)):
-		writeOption(f, key, section.get(conf_key))
 
 #vmaster_vmx_orig = "F:\\Virtual Machines\\VMaster\\VMaster.vmx"
 #vmaster_vmx = "F:\\Virtual Machines\\VMaster\\VMaster_modified.vmx"

@@ -5,6 +5,7 @@ import shutil
 import os
 import time
 from vmgLogging import *
+from writeFormat import *
 
 log = logging.getLogger("vmgen.vmgCommanderLxc")
 
@@ -76,8 +77,32 @@ class CommanderLxc(CommanderBase):
 		for f in files:
 			executeCommandSSH("chmod a+x " + f)
 
+		# create network interfaces
+		temp_file = "eth.tmp"
+		with open(temp_file, "w") as f:
+			log.info("\tCreating the network interfaces...")
+			section = self.data.getSection("hardware")
+			self.eth_list = section.get("eths").data.values()
+			for i, eth in enumerate(self.eth_list):
+				i = str(i)
+				eth_name = eth.get("name")
+				writeOption(f, "lxc.network.type", "veth", False)
+				writeOption(f, "lxc.network.link", "br0", False)
+				writeOption(f, "lxc.network.name", eth_name, False)
+				writeOption(f, "lxc.network.mtu", "1500", False)
+
+				# TODO: luat ip-uri
+				writeOption(f, "lxc.network.ipv4", "1.2.3.4/24", False)
+
+				if eth.contains("connected"):
+					writeOption(f, "lxc.network.flags", "up", False)
+
+		copyFileToVM(temp_file, self.host)
+		os.remove(temp_file)
+
 		executeCommandSSH("./" + script + " " + path + " " + self.id + " " + 
 			ver + " " + arch + " " + passwd)
+
 
 	def setupOperatingSystem(self):
 		pass

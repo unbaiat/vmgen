@@ -37,6 +37,9 @@ def copyFilesToVM(files, host):
 		src += f + " "
 	return executeCommand("scp " + key + " " + src + host + ":")
 
+def copyFileToVM(f, host):
+	return executeCommand("scp " + key + " " + f + " " + host + ":")
+
 def setUserHost(s):
 	global user_host
 	user_host = s
