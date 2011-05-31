@@ -62,11 +62,10 @@ class CommanderLxc(CommanderBase):
 
 		setUserHost(self.host)
 
-		executeCommand("vmrun start " + '"' + self.vm + '"')
-##		time.sleep(30)
+		try_power_on_vm(self.vm)
 
 		# TODO: get root passwd
-		passwd = "pass"
+		passwd = self.data.getSection("config").get("root_passwd")
 
 		files = os.listdir(folder)
 		paths = [os.path.join(folder, f) for f in files]

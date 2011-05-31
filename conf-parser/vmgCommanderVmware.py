@@ -10,10 +10,6 @@ from writeFormat import *
 """ Functions to write lines in a .vmx file. """
 log = logging.getLogger("vmgen.vmgCommanderVmware")
 
-#vmaster_vmx_orig = "F:\\Virtual Machines\\VMaster\\VMaster.vmx"
-#vmaster_vmx = "F:\\Virtual Machines\\VMaster\\VMaster_modified.vmx"
-#base_install_dir = "F:\\Virtual Machines\\so-vm-linux-neon\\so_gentoo\\"
-#new_machine_dir = os.getcwd() + "\\"
 """ Path to the original VMaster machine. """
 vmaster_vmx_orig = "/home/vmgen/VMaster/VMaster.vmx"
 
@@ -182,33 +178,32 @@ class CommanderVmware(CommanderBase):
 		"""Override"""
 		# attach the hdds to VMaster
 		log.info("\tAttach the new hard disks to the VMaster...")
-##		shutil.copy2(vmaster_vmx_orig, vmaster_vmx)
-##		with open(vmaster_vmx, "a") as f:
-##			# attach the base_system hdd
-##			disk_name = base_install_dir + base_disks[self.os]["name"]
-##			disk_type = base_disks[self.os]["type"]
-##
-##			if disk_type == "ide":
-##				prefix = "ide0:0"
-##			else:
-##				prefix = "scsi0:1"
-##
-##			writeOption(f, prefix + ".present", "TRUE")
-##			writeOption(f, prefix + ".fileName", disk_name)
-##			for i, hdd in enumerate(self.hdd_list):
-##				hdd_type = hdd.get("type")
-##				if hdd_type == "scsi":
-##					hdd_pos = "0:" + str(i + 2)
-##				else:
-##					hdd_pos = "0:" + str(i + 1)
-##				writeOption(f, hdd_type+hdd_pos + ".present", "TRUE")
-##				writeOption(f, hdd_type+hdd_pos + ".fileName", 
-##						new_machine_dir + hdd.get("name"))
+		shutil.copy2(vmaster_vmx_orig, vmaster_vmx)
+		with open(vmaster_vmx, "a") as f:
+			# attach the base_system hdd
+			disk_name = base_install_dir + base_disks[self.os]["name"]
+			disk_type = base_disks[self.os]["type"]
+
+			if disk_type == "ide":
+				prefix = "ide0:0"
+			else:
+				prefix = "scsi0:1"
+
+			writeOption(f, prefix + ".present", "TRUE")
+			writeOption(f, prefix + ".fileName", disk_name)
+			for i, hdd in enumerate(self.hdd_list):
+				hdd_type = hdd.get("type")
+				if hdd_type == "scsi":
+					hdd_pos = "0:" + str(i + 2)
+				else:
+					hdd_pos = "0:" + str(i + 1)
+				writeOption(f, hdd_type+hdd_pos + ".present", "TRUE")
+				writeOption(f, hdd_type+hdd_pos + ".fileName", 
+						new_machine_dir + hdd.get("name"))
 
 		# start VMaster
 		log.info("\tPowering up the VMaster machine...")
-		executeCommand("vmrun start " + '"' + vmaster_vmx + '"')
-##		time.sleep(30)
+		try_power_on_vm(vmaster_vmx)
 
 		# setup the partitions
 		log.info("\tPartitioning the new disks...")
