@@ -7,8 +7,10 @@ import time
 from vmgLogging import *
 from writeFormat import *
 
+""" Functions to write lines in a .vmx file. """
 log = logging.getLogger("vmgen.vmgCommanderLxc")
 
+"""	The distribution used for container creation parameters. """
 distro = {
 	"debian":{
 		"vm":"/home/vmgen/vmware/Debian (lxc)/Debian (lxc).vmx",
@@ -22,7 +24,8 @@ distro = {
 		"scripts-folder":"../scripts-lxc/fedora/"}
 }
 
-os_params = { 
+""" Container operating system parameters. """
+os_params = {
 		"fedora-64":{
 			"os":"fedora",
 			"version":"14", 
@@ -41,14 +44,18 @@ os_params = {
 			"arch":"x86"},
 }
 
+"""	The path in the VMware machine where the container is created. """
 path = "/lxc"
 
 class CommanderLxc(CommanderBase):
 
 	def setupHardware(self):
+		log.info("Creating the hardware configuration...")
+
 		self.os = self.data.getSection("hardware").get("os")
 		self.id = self.data.getSection("hardware").get("vm_id")
 
+		# extract the os parameters from the config file
 		os_type = os_params[self.os]["os"]
 		ver = os_params[self.os]["version"]
 		arch = os_params[self.os]["arch"]
@@ -60,25 +67,30 @@ class CommanderLxc(CommanderBase):
 
 		self.config = path + "/" + self.id + "/" + "config." + self.id
 
+		# set the user and host used for the SSH connection
 		setUserHost(self.host)
 
+		# power on the auxiliary VMware machine
+		log.info("\tStarting the virtual machine...")
 		try_power_on_vm(self.vm)
 
-		# TODO: get root passwd
+		# get root password
 		passwd = self.data.getSection("config").get("root_passwd")
 
+		# copy the needed scripts to the virtual machine
+		log.info("\tCopying the scripts to the virtual machine...")
 		files = os.listdir(folder)
 		paths = [os.path.join(folder, f) for f in files]
-		 
-		print files
 		copyFilesToVM(paths, self.host)
-
 		for f in files:
 			executeCommandSSH("chmod a+x " + f)
 
-		# create network interfaces
+		# create a temp file containing lines to be appended to the container
+		# config file
+		log.info("\tFilling up the network section in the config file...")
 		temp_file = "eth.tmp"
 		with open(temp_file, "w") as f:
+			# create network interfaces
 			log.info("\tCreating the network interfaces...")
 			section = self.data.getSection("hardware")
 			self.eth_list = section.get("eths").data.values()
@@ -86,7 +98,10 @@ class CommanderLxc(CommanderBase):
 				i = str(i)
 				eth_name = eth.get("name")
 				writeOption(f, "lxc.network.type", "veth", False)
+
+				# TODO: posibilitatea selectarii bridge-urilor
 				writeOption(f, "lxc.network.link", "br0", False)
+
 				writeOption(f, "lxc.network.name", eth_name, False)
 				writeOption(f, "lxc.network.mtu", "1500", False)
 
@@ -96,9 +111,12 @@ class CommanderLxc(CommanderBase):
 				if eth.contains("connected"):
 					writeOption(f, "lxc.network.flags", "up", False)
 
+		# copy the temp file to the virtual machine
 		copyFileToVM(temp_file, self.host)
 		os.remove(temp_file)
 
+		# run the script on the virtual machine, to create the container
+		log.info("\tRun the container creation script...")
 		executeCommandSSH("./" + script + " " + path + " " + self.id + " " + 
 			ver + " " + arch + " " + passwd)
 
@@ -107,10 +125,14 @@ class CommanderLxc(CommanderBase):
 		pass
 		
 	def startVM(self):
+		""" Start the container. """
+		log.info("\tStarting the container...")
 		executeCommandSSH("lxc-create" + " -n " + self.id + " -f " + self.config)
 		executeCommandSSH("lxc-start" + " -n " + self.id + " -f " + self.config)
 
 	def shutdownVM(self):
+		""" Shutdown the container and the virtual machine. """
+		log.info("\tStopping the container...")
 		executeCommandSSH("lxc-stop" + " -n " + self.id)
 		executeCommandSSH("lxc-destroy" + " -n " + self.id)
 #		executeCommandSSH("shutdown -h now")

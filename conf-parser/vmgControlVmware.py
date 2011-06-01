@@ -86,12 +86,3 @@ def try_power_on_vm(vmx_path):
 
 	time.sleep(5)
 	return True
-
-
-def test():
-	vmx_path = "/home/vmgen/VMaster/VMaster.vmx"
-	try_power_on_vm(vmx_path)
-
-	print executeCommandSSH("shutdown -h now")
-	
-test()
