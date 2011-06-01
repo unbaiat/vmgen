@@ -1,0 +1,6 @@
+none rootfs.TestMachine/dev/pts devpts defaults 0 0
+none rootfs.TestMachine/proc proc defaults 0 0
+none rootfs.TestMachine/sys sysfs defaults 0 0
+#none rootfs.TestMachine/var/lock tmpfs defaults 0 0
+#none rootfs.TestMachine/var/run tmpfs defaults 0 0
+#/etc/resolv.conf rootfs.TestMachine/etc/resolv.conf none bind 0 0
