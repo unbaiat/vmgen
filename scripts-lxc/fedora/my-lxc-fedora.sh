@@ -42,6 +42,7 @@ echo "======= lxc-config.sh ====="
 echo "======= chroot ====="
 # TODO: resolv.conf
 # chroot into the container
+cp /etc/resolv.conf $rootfs/etc/resolv.conf
 cp container-prepare.sh $rootfs/usr/local/bin/
 chroot $rootfs /bin/bash -c "container-prepare.sh $passwd"
 

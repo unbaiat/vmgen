@@ -6,6 +6,7 @@ import os
 import time
 from vmgLogging import *
 from writeFormat import *
+from vmgControlVmware import *
 
 """ Functions to write lines in a .vmx file. """
 log = logging.getLogger("vmgen.vmgCommanderLxc")
