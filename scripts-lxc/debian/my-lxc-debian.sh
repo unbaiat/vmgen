@@ -1,25 +1,13 @@
 #!/bin/bash
 
-# ./my-lxc-debian.sh path name version arch passwd ip gw dns
-# ./my-lxc-debian.sh /lxc lxc-lenny lenny amd64 root 192.168.1.10
-
-path=/lxc
-name=lenny
-version=lenny
-arch=amd64
-ip=192.168.1.42/24
-gateway=192.168.1.1
-dns=192.168.1.1
-passwd=root
+# ./my-lxc-debian.sh path name version arch passwd
+# ./my-lxc-debian.sh /lxc lxc-lenny lenny amd64 root
 
 path=$1
 name=$2
 version=$3
 arch=$4
 passwd=$5
-#ip=$6
-#gateway=$6
-#dns=$7
 
 # set needed variables
 vmpath=$path/$name
@@ -33,9 +21,9 @@ mkdir -p $rootfs
 
 # download the minimal OS
 echo "====== download os ========"
-#rm -rf $rootfs
-#cp -r $rootfs.bak $rootfs
-debootstrap --variant=minbase --arch $arch $version $rootfs
+rm -rf $rootfs
+cp -r $path/lenny-fresh-down $rootfs
+#debootstrap --variant=minbase --arch $arch $version $rootfs
 
 
 echo "======= chroot ====="
@@ -46,7 +34,7 @@ chroot $rootfs /bin/bash -c "container-prepare.sh \
 
 echo "======= edit config file ====="
 # edit config files
-sed -i "s|si::sysinit:/etc/init.d/rcS|&.$name" \
+sed -i "s|si::sysinit:/etc/init.d/rcS|&.$name|g" \
 	$rootfs/etc/inittab
 sed -i 's|5:23:respawn:/sbin/getty 38400 tty5|# &|g' $rootfs/etc/inittab
 sed -i 's|6:23:respawn:/sbin/getty 38400 tty6|# &|g' $rootfs/etc/inittab
