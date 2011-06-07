@@ -1,0 +1,23 @@
+Alexandru Andrei
+- OpenVZ Commander (container creation + users only, no applications installed)
+- the config file parser + sample config files
+
+Mircea Urse
+- the application architecture design and stub classes implementation
+- designed and implemented the commnunication infrastructure with the machines
+- logging support
+- lxc Commander (container creation, no applications installed)
+- the list of features to be included on the newly created machines
+- VMware Commander (hardware + operating system only, no application installed)
+	- researched unattended Operating System installation methods (Linux + 
+	  Windows)
+	- created base machines to be cloned when a new machine is created
+	- created the VMaster machine used to clone the basic machined
+	- designed and implemented the machine cloning process
+- installing applications unattended on Windows
+	- research
+	- gathered installation kits for applications and manually tested them for
+	  non-interactive installation
+	- implemented a first working version
+- wiki pages for describing the implemented features so far and the resources
+  found along the time
