@@ -17,8 +17,3 @@ class InstallerBase:
 	def install(self, program):
 		""" Install program. """
 		pass
-
-	def installList(self, progList):
-		""" Install each program in progList. """
-		[self.install(p) for p in progList]
-

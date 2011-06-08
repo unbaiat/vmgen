@@ -7,13 +7,9 @@ from runCommands import *
 log = logging.getLogger("vmgen.vmgInstallerWindows")
 
 # TODO rename the setups before running vmgen
+# TODO create scripts for unzip etc (eclipse, emacs, ...)
 # TODO copy the setups to the machine before installing
-# TODO install multiple programs with one temp script
 # TODO port to pyvix
-
-vmx_path = "D:\My Documents 1\Virtual Machines\Windows XP Professional (base)"
-vmx_file = "Windows XP Professional (base).vmx"
-vmx = "\"" + os.path.join(vmx_path, vmx_file) + "\""
 
 #common_prefix = "start /wait"
 common_prefix = ""
@@ -93,16 +89,15 @@ programs = {
 }
 
 class InstallerWindows(InstallerBase):
-	def setUserPass(self, user, passwd):
+	def __init__(self, vmx, user, passwd, setupFolder):
 		self.user = user
+		self.vmx = vmx
 		self.passwd = passwd
+		self.setupFolder = setupFolder
+
 		self.prefix = "vmrun -t ws" + " -gu " + self.user + " -gp " + self.passwd
 
-	def setSetupFolder(self, folder):
-		self.setupFolder = folder
-
-	def getCommand(self, progName):
-		prog = programs[progName]
+	def getCommand(self, prog):
 		type = prog["type"]
 		file = self.setupFolder + prog["setup-file"]
 		print file
@@ -116,26 +111,35 @@ class InstallerWindows(InstallerBase):
 
 		return cmd
 
-	def install(self, prog):
-		temp_file = "setup.bat"
-		remote_temp_file = "\"" + self.setupFolder + temp_file + "\""
+	def install(self, progList):
+		# print warnings for the unsupported programs and ignore them
+		errProgs = [p for p in progList if not p in programs]
+		[log.warning("Invalid program: " + p) for p in errProgs]
+		s = ["Invalid program: " + p for p in errProgs]
+		print s
 
-		# write the install command into a temp script file (.bat)
-		with open(temp_file, "w") as f:
-			f.write(self.getCommand(prog) + "\n")
+		# get the list of valid programs and proceed only if it is not empty
+		progs = [programs[p] for p in progList if p in programs]
+		if progs:
+			temp_file = "setup.bat"
+			remote_temp_file = "\"" + self.setupFolder + temp_file + "\""
 
-		# copy the temp script file to the guest
-		executeCommand(self.prefix + " copyFileFromHostToGuest " + vmx +
-			" " + temp_file + " " + remote_temp_file)
+			# write the install command into a temp script file (.bat)
+			with open(temp_file, "w") as f:
+				[f.write(self.getCommand(p) + "\n") for p in progs]
 
-		# execute the temp script on the guest
-		executeCommand(self.prefix + " runProgramInGuest " + vmx +
-			" -activeWindow " +	"cmd.exe " + "/C " + remote_temp_file)
+			# copy the temp script file to the guest
+			executeCommand(self.prefix + " copyFileFromHostToGuest " + self.vmx +
+				" " + temp_file + " " + remote_temp_file)
 
-		# remove the temp script file from the guest
-		executeCommand(self.prefix + " deleteFileInGuest " + vmx + " " + 
-			remote_temp_file)
+			# execute the temp script on the guest
+			executeCommand(self.prefix + " runProgramInGuest " + self.vmx +
+				" -activeWindow " +	"cmd.exe " + "/C " + remote_temp_file)
 
-		# remove the temp script from the local machine
-		os.remove(temp_file)
+			# remove the temp script file from the guest
+			executeCommand(self.prefix + " deleteFileInGuest " + self.vmx + " " + 
+				remote_temp_file)
+
+			# remove the temp script from the local machine
+			os.remove(temp_file)
 
