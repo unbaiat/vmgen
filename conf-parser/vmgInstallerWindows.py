@@ -1,6 +1,7 @@
 from vmgInstallerBase import InstallerBase
 from vmgLogging import *
 import os
+from zipfile import ZipFile
 
 from runCommands import *
 
@@ -8,7 +9,6 @@ log = logging.getLogger("vmgen.vmgInstallerWindows")
 
 # TODO rename the setups before running vmgen
 # TODO create scripts for unzip etc (eclipse, emacs, ...)
-# TODO copy the setups to the machine before installing
 # TODO port to pyvix
 
 #common_prefix = "start /wait"
@@ -111,6 +111,22 @@ class InstallerWindows(InstallerBase):
 
 		return cmd
 
+	def makeArchive(self, archName, files):
+		with ZipFile(archName, 'w') as myzip:
+			[myzip.write(f) for f in files]
+
+	def getExtractArchiveCmd(self, archName):
+		# TODO: add type dictionary? (zip, 7z)
+		return "7z.exe x -o" + self.setupFolder + " " + archName
+
+	def getRemoveCommand(self, fileName):
+		# TODO: add type?
+		return "del " + fileName
+
+	def getRemotePath(self, fileName):
+		return "\"" + self.setupFolder + fileName + "\""
+		
+
 	def install(self, progList):
 		# print warnings for the unsupported programs and ignore them
 		errProgs = [p for p in progList if not p in programs]
@@ -122,11 +138,33 @@ class InstallerWindows(InstallerBase):
 		progs = [programs[p] for p in progList if p in programs]
 		if progs:
 			temp_file = "setup.bat"
-			remote_temp_file = "\"" + self.setupFolder + temp_file + "\""
+			remote_temp_file = self.getRemotePath(temp_file)
+			arch_file = "setup.zip"
+			remote_arch_file = self.getRemotePath(arch_file)
+
+			# create an archive file with the needed installers
+			files = [p["setup-file"] for p in progs]
+			self.makeArchive(arch_file, files)
 
 			# write the install command into a temp script file (.bat)
 			with open(temp_file, "w") as f:
+				# extract the archive
+				f.write(self.getExtractArchiveCmd(remote_arch_file) + "\n")
+
+				# remove the archive file
+				f.write(self.getRemoveCommand(remote_arch_file) + "\n")
+
+				# execute the installers
 				[f.write(self.getCommand(p) + "\n") for p in progs]
+				
+				# remove the installers
+				[f.write(self.getRemoveCommand(
+					self.getRemotePath(ff) + "\n")) for ff in files]
+
+
+			# copy the temp script file to the guest
+			executeCommand(self.prefix + " copyFileFromHostToGuest " + self.vmx +
+				" " + arch_file + " " + remote_arch_file)
 
 			# copy the temp script file to the guest
 			executeCommand(self.prefix + " copyFileFromHostToGuest " + self.vmx +
@@ -142,4 +180,7 @@ class InstallerWindows(InstallerBase):
 
 			# remove the temp script from the local machine
 			os.remove(temp_file)
+
+			# remove the archive file from the local machine
+			os.remove(arch_file)
 
