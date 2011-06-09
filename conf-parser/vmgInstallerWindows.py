@@ -93,11 +93,12 @@ programs = {
 }
 
 class InstallerWindows(InstallerBase):
-	def __init__(self, vmx, user, passwd, setupFolder):
+	def __init__(self, vmx, user, passwd, setupFolder, localFolder):
 		self.user = user
 		self.vmx = vmx
 		self.passwd = passwd
 		self.setupFolder = setupFolder
+		self.localFolder = localFolder
 
 		self.prefix = "vmrun -t ws" + " -gu " + self.user + " -gp " + self.passwd
 
@@ -140,6 +141,8 @@ class InstallerWindows(InstallerBase):
 		
 
 	def install(self, progList):
+		cwd = os.getcwd()
+		os.chdir(self.localFolder)
 		# print warnings for the unsupported programs and ignore them
 		errProgs = [p for p in progList if not p in programs]
 		[log.warning("Invalid program: " + p) for p in errProgs]
@@ -205,3 +208,4 @@ class InstallerWindows(InstallerBase):
 			# remove the archive file from the local machine
 			os.remove(arch_file)
 
+		os.chdir(cwd)
