@@ -7,4 +7,4 @@ vmx = "\"" + os.path.join(vmx_path, vmx_file) + "\""
 
 i = InstallerWindows(vmx, "vmgen", "pass", "e:\\test\\")
 #i.install(["mozilla-thunderbird", "pidgin", "python"])
-i.install(["mozilla-thunderbird", "pidgin2", "python"])
+i.install(["mozilla-thunderbird", "eclipse", "pidgin2", "python2"])
