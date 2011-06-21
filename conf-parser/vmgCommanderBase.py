@@ -21,7 +21,7 @@ from vmgStruct import *
 """
 
 class CommanderBase:
-	def __init__(self, dumpFile, installer, connection):
+	def __init__(self, dumpFile, connection):
 		"""
 			Load the parsed data from dumpFile.
 			Set installer as the current installer
@@ -32,7 +32,6 @@ class CommanderBase:
 				- ...
 		"""
 		self.loadStruct(dumpFile)
-		self.installer = installer
 		self.connection = connection
 
 	def loadStruct(self, dumpFile):
@@ -55,12 +54,16 @@ class CommanderBase:
 
 		self.startVM()
 		self.connectToVM()
-		self.setupConfigurations()
-		self.setupNetwork()
-#		self.setupUsers()
+
+		self.config = self.getConfigInstance()
+		self.config.setupConfig()
+		self.root_passwd = self.config.getNewRootPasswd()
+
+		self.installer = self.getInstallerInstance()
 		self.setupServices()
 		self.setupDeveloperTools()
 		self.setupGuiTools()
+
 		self.disconnectFromVM()
 
 		self.shutdownVM()
@@ -93,18 +96,6 @@ class CommanderBase:
 		""" Install the OS on the new VM. """
 		pass
 
-	def setupConfigurations(self):
-		""" Configure the requested system settings. """
-		pass
-
-	def setupNetwork(self):
-		""" Configure the network on the guest OS. """
-		pass
-
-	def setupUsers(self):
-		""" Add the requested users to the guest OS. """
-		pass
-
 	def setupServices(self):
 		""" Configure the requested services on the guest OS. """
 		pass
@@ -120,14 +111,23 @@ class CommanderBase:
 
 	def installPrograms(self, section):
 		""" Install the programs in section using the configured installer. """
+		prog_list = []
 		for k, v in section.items():
 			if v == "1":
 				# single program
-				self.installer.install(k)
+				prog_list.append(k)
 			elif v == "0":
 				pass
 			else:
 				# a list of programs
+				# TODO: multiple programs separation?
 				l = [p.strip() for p in v.split(',')]
-				self.installer.installList(l)
+				self.prog_list.extend(l)
+
+		self.installer.install(prog_list)
 	
+	def getConfigInstance():
+		return None
+
+	def getInstallerInstance():
+		return None

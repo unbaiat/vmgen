@@ -33,3 +33,6 @@ class ConfigBase:
 
 	def applySettings(self):
 		pass
+
+	def getNewRootPasswd():
+		return None

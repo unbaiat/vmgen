@@ -8,6 +8,14 @@ from vmgLogging import *
 from writeFormat import *
 from vmgControlVmware import *
 
+
+from vmgInstallerWindows import *
+from vmgInstallerApt import *
+from vmgInstallerYum import *
+
+from vmgConfigWindows import *
+from vmgConfigLinux import *
+
 """ Functions to write lines in a .vmx file. """
 log = logging.getLogger("vmgen.vmgCommanderVmware")
 
@@ -76,6 +84,25 @@ base_disks = {
 				"fs":"ntfs"}
 			}
 
+aux_modules = {
+			"debian5-64":{ 
+				"config":"ConfigLinux",
+				"installer":"InstallerApt"
+			},
+			"ubuntu-64":{
+				"config":"ConfigLinux",
+				"installer":"InstallerApt"
+			},
+			"windows7-64":{
+				"config":"ConfigWindows",
+				"installer":"InstallerWindows"
+			},
+			"winxppro":{
+				"config":"ConfigWindows",
+				"installer":"InstallerWindows"
+			}
+		}
+
 class CommanderVmware(CommanderBase):
 	def startVM(self):
 		"""Override"""
@@ -98,8 +125,8 @@ class CommanderVmware(CommanderBase):
 		log.info("Creating the hardware configuration...")
 		section = self.data.getSection("hardware")
 		self.os = section.get("os")
-		vmx_file = new_machine_dir + "machine.vmx"
-		with open(vmx_file, "w") as f:
+		self.vmx_file = new_machine_dir + "machine.vmx"
+		with open(self.vmx_file, "w") as f:
 			# write header in the .vmx file
 			writeHeader(f, "/usr/bin/vmware")
 			writeOption(f, "config.version", "8")
@@ -272,35 +299,7 @@ class CommanderVmware(CommanderBase):
 		else:
 			# Windows or GRUB1
 			executeCommandSSH("dd if=/dev/sdb of=/dev/sdc bs=446 count=1")
-		
-		
 
-	def setupConfigurations(self):
-		"""Override"""
-		log.info("Configuring system settings...")
-		section = self.data.getSection("config")
-		for k, v in section.items():
-			log.info(str(k) + "=" + str(v))
-
-	def setupNetwork(self):	
-		"""Override"""
-		log.info("Setting up the network configurations...")
-		section = self.data.getSection("network")
-		for k, v in section.items():
-			log.info(str(k) + "=" + str(v))
-
-	def setupUsers(self):
-		"""Override"""
-		log.info("Adding users...")
-		section = self.data.getSection("users")
-		for i, u in enumerate(section.get("users")):
-			log.info("Add user #"+i)
-			log.info("\tName: " + u["name"])
-			log.info("\tPassword: ", u["passwd"])
-			log.info("\tGroup: " + u["group"])
-			log.info("\tHome directory: " + u["home_dir"])
-			log.info("\tPermissions: " + u["perm"])
-	
 	def setupServices(self):
 		"""Override"""
 		log.info("Installing services...")
@@ -318,4 +317,27 @@ class CommanderVmware(CommanderBase):
 		log.info("Installing GUI tools...")
 		section = self.data.getSection("gui")
 		self.installPrograms(section)
-	
+
+	def getConfigInstance():
+		config = aux_modules[self.os]["config"]
+		if isinstance(config, ConfigWindows):
+			return config(self.data, self.vmx_file)
+		elif isinstance(config, ConfigLinux):
+			# TODO
+			return None
+
+		return None
+
+	def getInstallerInstance():
+		installer = aux_modules[self.os]["installer"]
+		if isinstance(installer, InstallerWindows):
+			return installer(self.vmx_file, "Administrator", self.root_passwd,
+				"e:\\test\\", "kits\\")
+		elif isinstance(installer, InstallerApt):
+			# TODO
+			return None
+		elif isinstance(installer, InstallerYum):
+			# TODO
+			return None
+
+		return None

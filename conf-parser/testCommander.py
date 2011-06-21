@@ -15,8 +15,7 @@ class testCommander():
                         'lxc' : CommanderLxc
                         }
         try:
-            inst = InstallerDummy()
-            self.cmd = cmdSwitch[vmtype](dumpFile, inst, None)
+            self.cmd = cmdSwitch[vmtype](dumpFile, None)
         except Exception:
             print 'Cannot create commander'
 

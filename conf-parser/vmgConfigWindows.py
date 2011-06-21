@@ -29,8 +29,8 @@ class ConfigWindows(ConfigBase):
 			" call rename " + "\"" + hostname + "\"")
 
 		# set Administrator password
-		rootPasswd = section.get("root_passwd")
-		self.config("net user Administrator " + rootPasswd)
+		self.root_passwd = section.get("root_passwd")
+		self.config("net user Administrator " + self.root_passwd)
 
 	def setupGroups(self):
 		""" Create groups. """
@@ -147,3 +147,6 @@ class ConfigWindows(ConfigBase):
 	def deleteFileInGuest(self, file):
 		executeCommand(self.prefix + " deleteFileInGuest " + self.vmx + 
 			" " + file)
+
+	def getNewRootPasswd():
+		return self.root_passwd
