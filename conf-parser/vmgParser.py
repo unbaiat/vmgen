@@ -13,10 +13,23 @@ class vmgParser():
         self.infile = infile
 
     def __parse_section(self, config):
+#        '''
+#            Retrieve the subsections, recursively.
+#            Internal purposes.
+#        '''
+#        sectDict = {}
+#        for key in config.keys():
+#            if type(config[key]) == type(dict()):
+#                sectDict[key] = vmgSection(key, self.__parse_section(config[key]))
+#            else:
+#                sectDict[key] = config[key]
+#
+#        return sectDict
+#        
         '''
             Retrieve the subsections, recursively.
             Internal purposes.
-            '''
+        '''
         sectDict = {}
         for key in config.keys():
             if type(config[key]) is str:
