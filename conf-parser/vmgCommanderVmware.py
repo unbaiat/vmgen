@@ -10,11 +10,11 @@ from vmgControlVmware import *
 
 
 from vmgInstallerWindows import *
-from vmgInstallerApt import *
-from vmgInstallerYum import *
+#from vmgInstallerApt import *
+#from vmgInstallerYum import *
 
 from vmgConfigWindows import *
-from vmgConfigLinux import *
+#from vmgConfigLinux import *
 
 """ Functions to write lines in a .vmx file. """
 log = logging.getLogger("vmgen.vmgCommanderVmware")
@@ -85,21 +85,21 @@ base_disks = {
 			}
 
 aux_modules = {
-			"debian5-64":{ 
-				"config":"ConfigLinux",
-				"installer":"InstallerApt"
-			},
-			"ubuntu-64":{
-				"config":"ConfigLinux",
-				"installer":"InstallerApt"
-			},
+#			"debian5-64":{ 
+#				"config":ConfigLinux,
+#				"installer":InstallerApt
+#			},
+#			"ubuntu-64":{
+#				"config":ConfigLinux,
+#				"installer":InstallerApt
+#			},
 			"windows7-64":{
-				"config":"ConfigWindows",
-				"installer":"InstallerWindows"
+				"config":ConfigWindows,
+				"installer":InstallerWindows
 			},
 			"winxppro":{
-				"config":"ConfigWindows",
-				"installer":"InstallerWindows"
+				"config":ConfigWindows,
+				"installer":InstallerWindows
 			}
 		}
 
@@ -107,6 +107,7 @@ class CommanderVmware(CommanderBase):
 	def startVM(self):
 		"""Override"""
 		log.info("Starting the VM...")
+		try_power_on_vm(self.vmx_file)
 
 	def shutdownVM(self):
 		"""Override"""
@@ -188,7 +189,7 @@ class CommanderVmware(CommanderBase):
 				eth_name = "ethernet" + i
 				eth_type = eth.get("type")
 				writeOption(f, eth_name + ".present", "TRUE")
-				writeOption(f, eth_name + ".virtualDev", "e1000")
+				#writeOption(f, eth_name + ".virtualDev", "e1000")
 				writeOption(f, eth_name + ".connectionType", eth_type)
 				tryWriteOption(f, eth_name + ".startConnected", eth, 
 						"connected")
@@ -300,6 +301,8 @@ class CommanderVmware(CommanderBase):
 			# Windows or GRUB1
 			executeCommandSSH("dd if=/dev/sdb of=/dev/sdc bs=446 count=1")
 
+		executeCommandSSH("shutdown -h now")
+
 	def setupServices(self):
 		"""Override"""
 		log.info("Installing services...")
@@ -318,25 +321,25 @@ class CommanderVmware(CommanderBase):
 		section = self.data.getSection("gui")
 		self.installPrograms(section)
 
-	def getConfigInstance():
+	def getConfigInstance(self):
 		config = aux_modules[self.os]["config"]
-		if isinstance(config, ConfigWindows):
+		if issubclass(config, ConfigWindows):
 			return config(self.data, self.vmx_file)
-		elif isinstance(config, ConfigLinux):
+		elif issubclass(config, ConfigLinux):
 			# TODO
 			return None
 
 		return None
 
-	def getInstallerInstance():
+	def getInstallerInstance(self):
 		installer = aux_modules[self.os]["installer"]
-		if isinstance(installer, InstallerWindows):
+		if issubclass(installer, InstallerWindows):
 			return installer(self.vmx_file, "Administrator", self.root_passwd,
-				"e:\\test\\", "kits\\")
-		elif isinstance(installer, InstallerApt):
+				"C:\\", "kits/")
+		elif issubclass(installer, InstallerApt):
 			# TODO
 			return None
-		elif isinstance(installer, InstallerYum):
+		elif issubclass(installer, InstallerYum):
 			# TODO
 			return None
 

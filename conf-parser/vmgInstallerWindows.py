@@ -117,8 +117,11 @@ class InstallerWindows(InstallerBase):
 		return cmd
 
 	def makeArchive(self, archName, files):
-		with ZipFile(archName, 'w') as myzip:
-			[myzip.write(f) for f in files]
+		# TODO: not working in python 2.6 (2.7 required)
+		# with ZipFile(archName, 'w') as myzip:
+		myzip = ZipFile(archName, 'w')
+		[myzip.write(f) for f in files]
+		myzip.close()
 
 	def getExtractArchiveCmd(self, archName):
 		# TODO: add type dictionary? (zip, 7z)

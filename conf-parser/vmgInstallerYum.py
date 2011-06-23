@@ -128,7 +128,7 @@ local_cmd = " yum -y -d 0 -e 0 localinstall --nogpgcheck "
 simple_cmd = " yum -y -d 0 -e 0 install "
 group_cmd = " yum -y -d 0 -e 0 groupinstall "
 
-class InstallerApt:
+class InstallerYum:
 	def __init__(self, vmx, type, id=None, user=None, passwd=None, host=None):
 		self.vmx = vmx
 		if type == 'vmware':

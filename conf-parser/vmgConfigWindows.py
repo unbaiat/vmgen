@@ -23,7 +23,6 @@ class ConfigWindows(ConfigBase):
 
 		# set hostname
 		oldName = "\"vmgen-pc\""
-		oldName = "\"gigi\""
 		hostname = section.get("hostname")
 		self.config("wmic COMPUTERSYSTEM where name=" + oldName + 
 			" call rename " + "\"" + hostname + "\"")
@@ -59,9 +58,13 @@ class ConfigWindows(ConfigBase):
 	def setupNetwork(self):
 		# TODO: MAC
 		section = self.data.getSection("network")
-		self.eth_list = section.get("eths").data.values()
+		self.eth_list = getSortedValues(section.get("eths").data)
 		for i, eth in enumerate(self.eth_list):
 			eth_name = "Local Area Connection"
+
+			# TODO remove i += 1
+			i += 2
+
 			if i > 1:
 				eth_name += " " + str(i)
 			eth_name = "\"" + eth_name + "\""
@@ -117,7 +120,7 @@ class ConfigWindows(ConfigBase):
 		# write the install command into a temp script file (.bat)
 		with open(temp_file, "w") as f:
 			f.write(self.cmds)
-			f.write("PAUSE\n")
+#			f.write("PAUSE\n")
 
 		# TODO: common code with the InstallerWindows
 		# copy the temp script file to the guest
@@ -128,10 +131,10 @@ class ConfigWindows(ConfigBase):
 			" -activeWindow " +	"cmd.exe " + "/C " + remote_temp_file)
 
 		# remove the temp script file from the guest
-#		self.deleteFileInGuest(remote_temp_file)
+		self.deleteFileInGuest(remote_temp_file)
 
 		# remove the temp script from the local machine
-#		os.remove(temp_file)
+		os.remove(temp_file)
 
 	def getRemoveCommand(self, fileName):
 		# TODO: add type?
@@ -148,5 +151,8 @@ class ConfigWindows(ConfigBase):
 		executeCommand(self.prefix + " deleteFileInGuest " + self.vmx + 
 			" " + file)
 
-	def getNewRootPasswd():
+	def getNewRootPasswd(self):
 		return self.root_passwd
+
+def getSortedValues(d):
+	return [d[k] for k in sorted(d.iterkeys())]

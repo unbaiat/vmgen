@@ -75,7 +75,7 @@ class CommanderOpenvz(CommanderBase):
 			#if section.contains("eths"):
 			#	for k, v in section.get("eths").items():
 			#		executeCommandSSH("vzctl set " + vm_id + " --netif_add " + k + ",,,,br0 --save")
-			executeCommandSSH("vzctl set " + vm_id + " --ipadd " + 172.16.30.23 + " --save")
+			executeCommandSSH("vzctl set " + vm_id + " --ipadd " + "172.16.30.23" + " --save")
 			
 		except Exception as exc:
 			log.error("Cannot complete hardware configuration: " + str(exc))

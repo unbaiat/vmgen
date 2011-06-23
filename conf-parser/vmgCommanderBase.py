@@ -122,12 +122,12 @@ class CommanderBase:
 				# a list of programs
 				# TODO: multiple programs separation?
 				l = [p.strip() for p in v.split(',')]
-				self.prog_list.extend(l)
+				prog_list.extend(l)
 
 		self.installer.install(prog_list)
 	
-	def getConfigInstance():
+	def getConfigInstance(self):
 		return None
 
-	def getInstallerInstance():
+	def getInstallerInstance(self):
 		return None
