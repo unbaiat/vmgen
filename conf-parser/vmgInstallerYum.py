@@ -16,7 +16,7 @@ packages = {
 	"google-chrome" : {
 		"type" : "repo",
 		"package" : "google-chrome-stable",
-		"repo" : "path/to/google.repo" },	# requires repo in  /etc/yum.repos.d 
+		"repo" : "path/to/google.repo" },	# TODO: put the repo in svn and update valid path
 	"pidgin" : {
 		"type" : "simple",
 		"package" : "pidgin" },
@@ -52,7 +52,7 @@ packages = {
 		"package" : "emacs" },
 	"dynamips" : {
 		"type" : "local",
-		"rpm" : "path/to/rpm"},	# TODO
+		"rpm" : "path/to/rpm"},	# TODO: put the rpm in the svn and update to a valid path
 	"traceroute" : {
 		"type" : "simple",
 		"package" : "traceroute" },
@@ -128,18 +128,31 @@ local_cmd = " yum -y -d 0 -e 0 localinstall --nogpgcheck "
 simple_cmd = " yum -y -d 0 -e 0 install "
 group_cmd = " yum -y -d 0 -e 0 groupinstall "
 
-class InstallerYum:
+runners = {
+	'vmware' : __executeVmware,
+	'openvz' : __executeOpenvz,
+	'lxc' : __executeLxc
+}
+
+class InstallerApt:
 	def __init__(self, vmx, type, id=None, user=None, passwd=None, host=None):
-		self.vmx = vmx
-		if type == 'vmware':
-			self.execute = executeCommand
-			self.prefix = "vmrun -t ws" + " -gu " + user + " -gp " + passwd + " runProgramInGuest " + vmx
-		if type == 'openvz':
-			self.execute = executeCommandSSH
-			self.prefix = "vzctl enter " + str(id) + " --exec"
-		if type == 'lxc':
-			self.execute = executeCommandSSH
-			self.prefix = "lxc-execute -n " + str(id)
+		self.vmx = str(vmx)
+		self.id = str(id)
+		self.user = str(user)
+		self.passwd = str(passwd)
+		
+		self.runCmd = runners[type]
+		if host is not None:
+			setUserHost(host)
+		
+	def __executeVmware(self, cmd):
+		executeCommand("vmrun -t ws" + " -gu " + self.user + " -gp " + self.passwd + " runProgramInGuest " + self.vmx + " " + cmd)
+	
+	def __executeOpenvz(self, cmd):
+		executeCommandSSH("vzctl enter " + self.id + " --exec " + cmd + ";logout")
+		
+	def __executeLxc(self, cmd):
+		executeCommandSSH("lxc-execute -n " + self.id + " " + cmd)
 
 	def install(self, programs):
 		# Show warnings for unsupported programs
@@ -151,18 +164,25 @@ class InstallerYum:
 		# Retrieve only the list of valid programs
 		packs = [packages[p] for p in programs if p in packages]
 		if packs:
-			[self.execute(self.prefix + install_cmd + p['package']) for p in packs]
 			for p in packs:
 				if p['type'] == 'simple':
-					self.execute(self.prefix + simple_cmd + p['package'])
+					self.runCmd(simple_cmd + p['package'])
 				if p['type'] == 'group':
-					self.execute(self.prefix + group_cmd + p['package'])
+					self.runCmd(group_cmd + p['package'])
 				if p['type'] == 'repo':
-					# TODO: copy repo to /etc/yum.repos.d/
-					self.execute(self.prefix + simple_cmd + p['package'])
+					# copy repo file in /
+					copyFileToVM(p['repo'], self.host)
+					# copy repo file to specific container
+					executeCommandSSH("mv *.repo $VZDIR/root/" + self.id)
+					# do the stuff
+					self.runCmd(simple_cmd + p['package'])
 				if p['type'] == 'local':
-					# TODO: copy rpm to vm
-					self.execute(self.prefix + local_cmd + p['rpm'])
+					# copy rpm to root
+					copyFileToVM(p['rpm'], self.host)
+					# execute
+					self.runCmd(local_cmd + p['package'])
+					# remove rpm
+					self.execute("rm -rf *.rpm")
 					
 # Testing
 vmx_path = "C:\Users\Arya\Documents\Virtual Machines\Fedora-15"

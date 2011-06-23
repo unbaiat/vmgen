@@ -49,19 +49,31 @@ packages = {
 
 install_cmd = " /usr/bin/apt-get install -y -q "
 
+runners = {
+	'vmware' : __executeVmware,
+	'openvz' : __executeOpenvz,
+	'lxc' : __executeLxc
+}
+
 class InstallerApt:
 	def __init__(self, vmx, type, id=None, user=None, passwd=None, host=None):
-		self.vmx = vmx
-		if type == 'vmware':
-			self.execute = executeCommand
-			self.prefix = "vmrun -t ws" + " -gu " + user + " -gp " + passwd + " runProgramInGuest " + vmx
-		if type == 'openvz':
-			self.execute = executeCommandSSH
-			# TODO: logout after command
-			self.prefix = "vzctl enter " + str(id) + " --exec"
-		if type == 'lxc':
-			self.execute = executeCommandSSH
-			self.prefix = "lxc-execute -n " + str(id)
+		self.vmx = str(vmx)
+		self.id = str(id)
+		self.user = str(user)
+		self.passwd = str(passwd)
+		
+		self.runCmd = runners[type]
+		if host is not None:
+			setUserHost(host)
+		
+	def __executeVmware(self, cmd):
+		executeCommand("vmrun -t ws" + " -gu " + self.user + " -gp " + self.passwd + " runProgramInGuest " + self.vmx + " " + cmd)
+	
+	def __executeOpenvz(self, cmd):
+		executeCommandSSH("vzctl enter " + self.id + " --exec " + cmd + ";logout")
+		
+	def __executeLxc(self, cmd):
+		executeCommandSSH("lxc-execute -n " + self.id + " " + cmd)
 		
 	def install(self, programs):
 		# Show warnings for unsupported programs
@@ -73,7 +85,7 @@ class InstallerApt:
 		# Retrieve only the list of valid programs
 		packs = [packages[p] for p in programs if p in packages]
 		if packs:
-			[self.execute(self.prefix + install_cmd + p['package']) for p in packs]
+			[self.runCmd(install_cmd + p['package']) for p in packs]
 			
 # Testing
 vmx_path = "C:\Users\Arya\Documents\Virtual Machines\Debian-6"

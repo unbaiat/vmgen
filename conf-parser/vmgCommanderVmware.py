@@ -104,6 +104,14 @@ aux_modules = {
 		}
 
 class CommanderVmware(CommanderBase):
+	def __init__(self):
+		connParam = {
+			'vmx' : 'path/to/vmx',
+			'user' : 'user',
+			'pwd' : 'pwd'
+		}
+		self.comm = CommunicatorVmware(connParam)
+
 	def startVM(self):
 		"""Override"""
 		log.info("Starting the VM...")
@@ -326,7 +334,7 @@ class CommanderVmware(CommanderBase):
 		if issubclass(config, ConfigWindows):
 			return config(self.data, self.vmx_file)
 		elif issubclass(config, ConfigLinux):
-			# TODO
+			# return config(self.comm)
 			return None
 
 		return None
@@ -337,10 +345,10 @@ class CommanderVmware(CommanderBase):
 			return installer(self.vmx_file, "Administrator", self.root_passwd,
 				"C:\\", "kits/")
 		elif issubclass(installer, InstallerApt):
-			# TODO
+			# return InstallerApt(self.comm)
 			return None
 		elif issubclass(installer, InstallerYum):
-			# TODO
+			# return InstallerYum(self.comm)
 			return None
 
 		return None

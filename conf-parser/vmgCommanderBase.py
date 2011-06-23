@@ -21,18 +21,13 @@ from vmgStruct import *
 """
 
 class CommanderBase:
-	def __init__(self, dumpFile, connection):
+	def __init__(self, dumpFile):
 		"""
 			Load the parsed data from dumpFile.
 			Set installer as the current installer
-			Use connection as the current method to interract with the machine:
-				- ssh
-				- VIX
-				- libvirt
-				- ...
+			Set config module
 		"""
 		self.loadStruct(dumpFile)
-		self.connection = connection
 
 	def loadStruct(self, dumpFile):
 		"""

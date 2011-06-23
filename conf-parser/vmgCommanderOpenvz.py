@@ -1,4 +1,5 @@
 from vmgCommanderBase import CommanderBase
+from vmgCommunicatorOpenvz import *
 from vmgInstallerDummy import InstallerDummy
 from runCommands import *
 from vmgLogging import *
@@ -9,10 +10,26 @@ import time
 
 vm="/home/vmgen/vmware/Fedora-32/Fedora-32.vmx"
 host="root@fedora-32"
+script_folder="../scripts-openvz/"
+get_template="get_template.sh"
 
 log = logging.getLogger("vmgen.vmgCommanderOpenvz")
 
+installer = {
+	'debian' : InstallerApt,
+	'ubuntu' : InstallerApt,
+	'fedora' : InstallerYum
+}
+
 class CommanderOpenvz(CommanderBase):
+	def __init__(self):
+		vm_id = self.data.getSection("hardware").get("vm_id")
+		connParam = { 	'vmx' : vm,
+						'host' : host,
+						'id' : vm_id
+					}
+		self.comm = CommunicatorOpenvz(connParam)
+
 	def startVM(self):
 		try:
 			vm_id = self.data.getSection("hardware").get("vm_id")
@@ -26,6 +43,12 @@ class CommanderOpenvz(CommanderBase):
 			vm_id = self.data.getSection("hardware").get("vm_id")
 			log.debug("Stop container ...")
 			executeCommandSSH("vzctl stop " + vm_id)
+			# TODO: create archive and retrieve it
+			# executeCommandSSH("tar czf fs.tar $VZDIR/private/" + vm_id)
+			# executeCommandSSH("tar czf " + vm_id + ".tar /etc/vz/conf/" + vm_id + ".conf fs.tar")
+			# copyFileFromVM(vm_id + ".tar", host)
+			#log.debug("Destroy container ...")
+			#executeCommandSSH("vzctl destroy " + vm_id)
 			#log.debug("Destroy container ...")
 			#executeCommandSSH("vzctl destroy " + vm_id)
 		except Exception as exc:
@@ -51,6 +74,13 @@ class CommanderOpenvz(CommanderBase):
 			log.debug("\tStarting the virtual machine...")
 			try_power_on_vm(vm)
 
+			# run script in vm to retrieve template
+			paths = [ os.path.join(script_folder, get_template) ]
+			print paths
+			copyFilesToVM(paths, host)
+			executeCommandSSH("chmod a+x " + get_template)
+			executeCommandSSH("./" + get_template + " -t " + section.get("os"))
+			
 			# create container
 			log.debug("Create container ...")
 			executeCommandSSH("vzctl create " + vm_id + " --ostemplate " + section.get("os"))
@@ -71,11 +101,28 @@ class CommanderOpenvz(CommanderBase):
 				diskspace = section.get("hdds").items()[0][1].get("size")
 				executeCommandSSH(setup_cmd + " --diskspace " + diskspace + ":" + diskspace + " --save")
 
-			# TODO: interfaces
-			#if section.contains("eths"):
-			#	for k, v in section.get("eths").items():
-			#		executeCommandSSH("vzctl set " + vm_id + " --netif_add " + k + ",,,,br0 --save")
-			executeCommandSSH("vzctl set " + vm_id + " --ipadd " + "172.16.30.23" + " --save")
+			# interfaces
+			if section.contains("eths"):
+				for k, v in section.get("eths").items():
+					executeCommandSSH("vzctl stop " + vm_id)
+					executeCommandSSH(setup_cmd + " --netif_add " + k + " --save")
+					self.startVM()
+
+					# TODO: add this to a script to run at container start
+					# on host vm
+					executeCommandSSH("echo 1 > /proc/sys/net/ipv4/conf/veth" + vm_id + ".0/forwarding")
+					executeCommandSSH("echo 1 > /proc/sys/net/ipv4/conf/veth" + vm_id + ".0/proxy_arp")
+					executeCommandSSH("echo 1 > /proc/sys/net/ipv4/conf/" + k + "/forwarding")
+					executeCommandSSH("echo 1 > /proc/sys/net/ipv4/conf/" + k + "/proxy_arp")
+					executeCommandSSH("ip r add " + "192.168.0.123" + " dev veth" + vm_id + ".0")
+					
+					# in container
+					executeCommandSSH("vzctl exec " + vm_id + " ip link set dev " + k + " up")
+					executeCommandSSH("vzctl exec " + vm_id + " ip a add " + "192.168.0.123" + " dev " + k)
+					executeCommandSSH("vzctl exec " + vm_id + " ip r add default dev " + k)
+					
+			# simple venet interface
+			executeCommandSSH("vzctl set " + vm_id + " --ipadd " + 172.16.30.23 + " --save")
 			
 		except Exception as exc:
 			log.error("Cannot complete hardware configuration: " + str(exc))
@@ -85,51 +132,6 @@ class CommanderOpenvz(CommanderBase):
 		section = self.data.getSection("config")
 		#for k, v in section.items():
 		#	print k, "=", v
-
-	def setupNetwork(self):	
-		print "Setting up the network configurations..."
-		vm_id = self.data.getSection("hardware").get("vm_id")
-		section = self.data.getSection("network")
-		if section.contains('hostname'):
-			executeCommandSSH("vzctl set " + vm_id + " --hostname " + section.get('hostname') + " --save")
-		if section.contains('nameservers'):
-			print section.get('nameservers')
-			for k,v in section.get('nameservers').items():
-				executeCommandSSH("vzctl set " + vm_id + " --nameserver " + v + " --save")
-		
-	def setupUsers(self):
-		if self.data.contains("users") is False:
-			log.debug("No users to add ...")
-			return
-		log.debug("Adding users ...")
-		section = self.data.getSection("users")
-		vm_id = self.data.getSection("hardware").get("vm_id")
-
-		for i, u in enumerate(section.get("users")):
-			if u.contains('name') is False:
-				log.error("Cannot add user #" + str(i) + ": missing name")
-				continue
-			log.debug("Add user #" + str(i) + ": " + u['name'])
-
-			# User name & password
-			if u.contains('name') is False:
-				log.error("Cannot add user #" + str(i) + ": missing password")
-			executeCommandSSH("vzctl set " + vm_id + " --userpasswd " + u["name"] + ":" + u["passwd"])
-
-			# User group
-			if u.contains('group'):
-				# make sure the group exists
-				executeCommandSSH("vzctl exec groupadd " + u['group'])
-				# set user group
-				executeCommandSSH("vzctl exec usermod -g " + u['group'] + " " + u['name'])
-
-			# User home directory
-			if u.contains('home_dir'):
-				executeCommandSSH("vzctl exec usermod -d " + u['home_dir'] + " " + u['name'])
-
-			# TODO: User permissions
-			if u.contains('perm'):
-				print "\tPermissions: ", u["perm"]
 
 	def setupServices(self):
 		print "Installing services..."
@@ -146,3 +148,12 @@ class CommanderOpenvz(CommanderBase):
 		section = self.data.getSection("gui")
 		#self.installPrograms(section)
 
+	def getConfigInstance(self):
+		return ConfigLinux(self.data, self.comm)
+
+	def getInstallerInstance(self):
+		vm_id = self.data.getSection("hardware").get("vm_id")
+		for k in installer.keys():
+			if str(k) in vm_id:
+				return installer[k](self.comm)
+		return None

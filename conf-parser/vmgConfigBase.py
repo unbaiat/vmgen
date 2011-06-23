@@ -1,7 +1,7 @@
 from vmgStruct import *
 
 class ConfigBase:
-	def __init__(self, data):
+	def __init__(self, data, comm):
 		self.data = data
 
 	def setupConfig(self):
