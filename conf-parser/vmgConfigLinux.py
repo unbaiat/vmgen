@@ -51,15 +51,54 @@ class ConfigLinux(ConfigBase, communicator):
 			self.config("echo " + passwd + " | passwd --stdin " + name)
 
 	def setupNetwork(self):
-		section = self.data.getSection("network")
-		self.eth_list = section.get("eths").data.values()
+		section = self.data.getSection('network')
+		nameservers = section.getSection('nameservers')
+		# nameservers
+		# clear the current nameservers
+		self.comm.runCommand("echo \" \" > /etc/resolv.conf")
+		for ns in nameservers.data.values():
+			self.config("echo nameserver " + ns + " >> /etc/resolv.conf")
+			
+		# gateway
+		gateway = section.get('gateway')
+		self.config("ip route del default")
+		self.config("ip route add default via " + gateway)
+		
+		self.eth_list = section.get('eths').data.values()
 		for i, eth in enumerate(self.eth_list):
-			pass
+			type = eth.get('type')
+			if type == 'static':
+				# static addresses
+				hw_address = eth.get('hw_addr')
+				address = eth.get('address')
+				network = eth.get('network')
+
+				# ip
+				self.config("ip addr add " + address + " dev " + i)
+				# mac
+				self.config("ip link set dev " + i + " address " + hw_address)
+				# TODO: netmask
+			if type == 'dhcp':
+				hw_address = eth.get('hw_addr')
+				# mac
+				self.config("ip link set dev " + i + " address " + hw_address)
+				# TODO: config eth to dhcp (edit /etc/network/interfaces)
 
 	def setupFirewall(self):
 		""" Setup the open ports in the firewall. """
 		section = self.data.getSection("network")
-		pass
+		ports = section.get("open_ports").data.values()
+		for port in ports:
+			proto = port.get("proto")
+			port_num = port.get("port")
+			desc = port.get("description")
+
+			# create the rule
+			self.config("iptables -A INPUT -p " + proto + " --sport " + port_num + " -m state --state NEW,ESTABLISHED -j ACCEPT")
+			
+		extra_rules = section.get('firewall_rules').data.values()
+		for rule in extra_rules:
+			self.config(rule)
 
 	def config(self, cmd):
 		self.cmds += cmd + "\n"

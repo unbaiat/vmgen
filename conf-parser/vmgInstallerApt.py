@@ -82,6 +82,10 @@ class InstallerApt:
 		s = ["Invalid program: " + p for p in errs]
 		print s
 
+		# invalidate a line in sources.list that checks packages on cd-rom,
+		# causing the installer to block
+		self.runCmd("sed -i '/cdrom/s/^/# /' /etc/apt/sources.list")
+		
 		# Retrieve only the list of valid programs
 		packs = [packages[p] for p in programs if p in packages]
 		if packs:

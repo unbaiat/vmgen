@@ -43,12 +43,10 @@ class CommanderOpenvz(CommanderBase):
 			vm_id = self.data.getSection("hardware").get("vm_id")
 			log.debug("Stop container ...")
 			executeCommandSSH("vzctl stop " + vm_id)
-			# TODO: create archive and retrieve it
-			# executeCommandSSH("tar czf fs.tar $VZDIR/private/" + vm_id)
-			# executeCommandSSH("tar czf " + vm_id + ".tar /etc/vz/conf/" + vm_id + ".conf fs.tar")
-			# copyFileFromVM(vm_id + ".tar", host)
-			#log.debug("Destroy container ...")
-			#executeCommandSSH("vzctl destroy " + vm_id)
+			# Build archive and retrieve it
+			executeCommandSSH("tar czf fs.tar $VZDIR/private/" + vm_id)
+			executeCommandSSH("tar czf " + vm_id + ".tar /etc/vz/conf/" + vm_id + ".conf fs.tar")
+			copyFileFromVM(vm_id + ".tar", host)
 			#log.debug("Destroy container ...")
 			#executeCommandSSH("vzctl destroy " + vm_id)
 		except Exception as exc:
@@ -126,12 +124,6 @@ class CommanderOpenvz(CommanderBase):
 			
 		except Exception as exc:
 			log.error("Cannot complete hardware configuration: " + str(exc))
-
-	def setupConfigurations(self):
-		print "Configuring system settings..."
-		section = self.data.getSection("config")
-		#for k, v in section.items():
-		#	print k, "=", v
 
 	def setupServices(self):
 		print "Installing services..."
