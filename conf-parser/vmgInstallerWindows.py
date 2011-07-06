@@ -93,14 +93,11 @@ programs = {
 }
 
 class InstallerWindows(InstallerBase):
-	def __init__(self, vmx, user, passwd, setupFolder, localFolder):
-		self.user = user
-		self.vmx = vmx
-		self.passwd = passwd
+	def __init__(self, communicator, setupFolder, localFolder):
+		InstallerBase.__init__(self, communicator)
 		self.setupFolder = setupFolder
 		self.localFolder = localFolder
 
-		self.prefix = "vmrun -t ws" + " -gu " + self.user + " -gp " + self.passwd
 
 	def getCommand(self, prog):
 		type = prog["type"]
@@ -133,15 +130,6 @@ class InstallerWindows(InstallerBase):
 
 	def getRemotePath(self, fileName):
 		return "\"" + self.setupFolder + fileName + "\""
-
-	def copyFileFromHostToGuest(self, file):
-		executeCommand(self.prefix + " copyFileFromHostToGuest " + self.vmx +
-			" " + file + " " + self.getRemotePath(file))
-	
-	def deleteFileInGuest(self, file):
-		executeCommand(self.prefix + " deleteFileInGuest " + self.vmx + 
-			" " + file)
-		
 
 	def install(self, progList):
 		cwd = os.getcwd()
@@ -190,23 +178,19 @@ class InstallerWindows(InstallerBase):
 #				f.write("PAUSE\n")
 
 			# copy the archive-install script file to the guest
-			self.copyFileFromHostToGuest(install_archive_script)
+			self.communicator.copyFileFromHostToGuest(install_archive_script,
+					remote_install_archive)
 
 			# copy the temp script file to the guest
-			self.copyFileFromHostToGuest(arch_file)
+			self.communicator.copyFileFromHostToGuest(arch_file, 
+					remote_arch_file)
 
 			# copy the temp script file to the guest
-			self.copyFileFromHostToGuest(temp_file)
-
 			# execute the temp script on the guest
-			executeCommand(self.prefix + " runProgramInGuest " + self.vmx +
-				" -activeWindow " +	"cmd.exe " + "/C " + remote_temp_file)
-
 			# remove the temp script file from the guest
-			self.deleteFileInGuest(remote_temp_file)
-
 			# remove the temp script from the local machine
-			os.remove(temp_file)
+			self.communicator.fileCopyRunDelete(temp_file, remote_temp_file,
+					"cmd.exe /C ")
 
 			# remove the archive file from the local machine
 			os.remove(arch_file)

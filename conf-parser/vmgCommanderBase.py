@@ -52,7 +52,8 @@ class CommanderBase:
 
 		self.config = self.getConfigInstance()
 		self.config.setupConfig()
-		self.root_passwd = self.config.getNewRootPasswd()
+		root_passwd = self.config.getNewRootPasswd()
+		self.communicator.updatePassword(root_passwd)
 
 		self.installer = self.getInstallerInstance()
 		self.setupServices()

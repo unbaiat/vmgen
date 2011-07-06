@@ -96,11 +96,15 @@ aux_modules = {
 #			},
 			"windows7-64":{
 				"config":ConfigWindows,
-				"installer":InstallerWindows
+				"installer":InstallerWindows,
+				"user":"Administrator",
+				"passwd":"pass"
 			},
 			"winxppro":{
 				"config":ConfigWindows,
-				"installer":InstallerWindows
+				"installer":InstallerWindows,
+				"user":"Administrator",
+				"passwd":"pass"
 			}
 		}
 
@@ -136,6 +140,10 @@ class CommanderVmware(CommanderBase):
 		section = self.data.getSection("hardware")
 		self.os = section.get("os")
 		self.vmx_file = new_machine_dir + "machine.vmx"
+
+		self.communicator = CommunicatorVmware(self.vmx_file, 
+				aux_modules[self.os]["user"], aux_modules[self.os]["passwd"])
+
 		with open(self.vmx_file, "w") as f:
 			# write header in the .vmx file
 			writeHeader(f, "/usr/bin/vmware")
@@ -339,7 +347,7 @@ class CommanderVmware(CommanderBase):
 	def getConfigInstance(self):
 		config = aux_modules[self.os]["config"]
 		if issubclass(config, ConfigWindows):
-			return config(self.data, self.vmx_file)
+			return config(self.data, self.communicator)
 		elif issubclass(config, ConfigLinux):
 			# return config(self.comm)
 			return None
@@ -349,8 +357,7 @@ class CommanderVmware(CommanderBase):
 	def getInstallerInstance(self):
 		installer = aux_modules[self.os]["installer"]
 		if issubclass(installer, InstallerWindows):
-			return installer(self.vmx_file, "Administrator", self.root_passwd,
-				"C:\\", "kits/")
+			return installer(self.communicator, "C:\\", "kits/")
 		elif issubclass(installer, InstallerApt):
 			# return InstallerApt(self.comm)
 			return None

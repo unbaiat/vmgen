@@ -3,13 +3,10 @@ from runCommands import *
 from vmgUtils import *
 
 class ConfigWindows(ConfigBase):
-	def __init__(self, data, vmx):
+	def __init__(self, data, communicator):
+		ConfigBase.__init__(self, data, communicator)
 		self.data = data
-		user = "Administrator"
-		passwd = "pass"
-		self.prefix = "vmrun -t ws" + " -gu " + user + " -gp " + passwd
 
-		self.vmx = vmx
 		self.setupFolder = "C:\\"
 		self.cmds = ""
 
@@ -51,11 +48,10 @@ class ConfigWindows(ConfigBase):
 			self.config("net user " + name + " " + passwd + " /ADD")
 
 			# add the user to the specified groups
-			for group in user.get("groups").replace(" ", "").split(","):
+			for group in splitList(user.get("groups")):
 				self.config("net localgroup " + group + " " + name + " /ADD")
 
 	def setupNetwork(self):
-		# TODO: MAC
 		section = self.data.getSection("network")
 		self.eth_list = getSortedValues(section.get("eths").data)
 		for i, eth in enumerate(self.eth_list):
@@ -70,7 +66,6 @@ class ConfigWindows(ConfigBase):
 			type = eth.get("type")
 			if type == "static":
 				# static addresses
-				hw_address = eth.get("hw_addr")
 				address = eth.get("address")
 				network = eth.get("network")
 				gateway = eth.get("gateway")
@@ -121,19 +116,12 @@ class ConfigWindows(ConfigBase):
 			f.write(self.cmds)
 #			f.write("PAUSE\n")
 
-		# TODO: common code with the InstallerWindows
 		# copy the temp script file to the guest
-		self.copyFileFromHostToGuest(temp_file)
-
 		# execute the temp script on the guest
-		executeCommand(self.prefix + " runProgramInGuest " + self.vmx +
-			" -activeWindow " +	"cmd.exe " + "/C " + remote_temp_file)
-
 		# remove the temp script file from the guest
-		self.deleteFileInGuest(remote_temp_file)
-
 		# remove the temp script from the local machine
-		os.remove(temp_file)
+		self.communicator.fileCopyRunDelete(temp_file, remote_temp_file,
+				"cmd.exe /C ")
 
 	def getRemoveCommand(self, fileName):
 		# TODO: add type?
@@ -141,14 +129,6 @@ class ConfigWindows(ConfigBase):
 
 	def getRemotePath(self, fileName):
 		return "\"" + self.setupFolder + fileName + "\""
-
-	def copyFileFromHostToGuest(self, file):
-		executeCommand(self.prefix + " copyFileFromHostToGuest " + self.vmx +
-			" " + file + " " + self.getRemotePath(file))
-	
-	def deleteFileInGuest(self, file):
-		executeCommand(self.prefix + " deleteFileInGuest " + self.vmx + 
-			" " + file)
 
 	def getNewRootPasswd(self):
 		return self.root_passwd

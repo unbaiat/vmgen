@@ -3,6 +3,7 @@ from vmgStruct import *
 class ConfigBase:
 	def __init__(self, data, comm):
 		self.data = data
+		self.communicator = comm
 
 	def setupConfig(self):
 		""" 

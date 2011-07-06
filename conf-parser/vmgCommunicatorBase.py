@@ -1,4 +1,5 @@
 from runCommands import *
+import os
 
 """
 	A base communicator class (abstract), which provides a generic interface for
@@ -32,3 +33,12 @@ class CommunicatorBase:
 			Delete the specified file from the virtual machine
 		"""
 		pass
+
+	def updatePassword(self, passwd):
+		pass
+
+	def fileCopyRunDelete(self, localPath, remotePath, runPrefix):
+		self.copyFileToVM(localPath, remotePath)
+		self.runCommand(runPrefix + remotePath)
+		self.deleteFileInGuest(remotePath)
+		os.remove(localPath)

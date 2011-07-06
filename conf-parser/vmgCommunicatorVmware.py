@@ -1,33 +1,40 @@
 log = logging.getLogger("vmgen.vmgCommunicatorVmware")
 
 class CommunicatorVmware(CommunicatorBase):
-	def __init__(self, **connData):
+	def __init__(self, vmx, user, passwd):
 		"""
 			Set parameters for the communicator
 			Parameters are given as a dictionary of <key, value> pairs which are
 			specific to each communicator
 		"""
-		try:
-			self.vmx = connData['vmx']
-			self.user = connData['user']
-			self.passwd = connData['passwd']
-		except KeyError:
-			log.error("CommunicatorVmware: invalid parameters")
+		self.vmx = vmx
+		self.user = user
+		self.passwd = passwd
+
+		self.prefix = "vmrun -t ws" + " -gu " + self.user + " -gp " + self.passwd
 
 	def runCommand(self, cmd):
 		"""
 			Execute the specified command
 		"""
-		executeCommand("vmrun -t ws -gu " + self.user + " -gp " + self.passwd + " runProgramInGuest " + self.vmx + " - activeWindow " + cmd)
+		executeCommand("vmrun -t ws -gu " + self.prefix +
+				" runProgramInGuest " + self.vmx + " -activeWindow " + cmd)
 		
 	def copyFileToVM(self, localPath, remotePath):
 		"""
 			Copy the specified file to the virtual machine
 		"""
-		executeCommand("vmrun -t ws -gu " + self.user + " -gp " + self.passwd + " copyFileFromHostToGuest " + self.vmx + " " + localPath + " " + remotePath)
+		executeCommand("vmrun -t ws -gu " + self.prefix +
+				" copyFileFromHostToGuest " + self.vmx + " " + localPath + " " 
+				+ remotePath)
 	
 	def deleteFileInGuest(self, remotePath):
 		"""
 			Delete the specified file from the virtual machine
 		"""
-		executeCommand("vmrun -t ws -gu " + self.user + " -gp " + self.passwd + " deleteFileInGuest " + self.vmx + " " + remotePath)
+		executeCommand("vmrun -t ws -gu " + self.prefix +
+				" deleteFileInGuest " + self.vmx + " " + remotePath)
+
+	def updatePassword(self, passwd):
+		self.passwd = passwd
+		self.prefix = "vmrun -t ws" + " -gu " + self.user + " -gp " + self.passwd

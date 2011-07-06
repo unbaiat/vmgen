@@ -11,8 +11,8 @@
 """
 
 class InstallerBase:
-	def __init__(self):
-		pass
+	def __init__(self, comm):
+		self.communicator = comm
 
 	def install(self, programList):
 		""" Install program. """
