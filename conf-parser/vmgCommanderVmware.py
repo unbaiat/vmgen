@@ -7,6 +7,7 @@ import time
 from vmgLogging import *
 from writeFormat import *
 from vmgControlVmware import *
+from vmgUtils import *
 
 
 from vmgInstallerWindows import *
@@ -104,13 +105,13 @@ aux_modules = {
 		}
 
 class CommanderVmware(CommanderBase):
-	def __init__(self):
-		connParam = {
-			'vmx' : 'path/to/vmx',
-			'user' : 'user',
-			'pwd' : 'pwd'
-		}
-		self.comm = CommunicatorVmware(connParam)
+#	def __init__(self):
+#		connParam = {
+#			'vmx' : 'path/to/vmx',
+#			'user' : 'user',
+#			'pwd' : 'pwd'
+#		}
+#		self.comm = CommunicatorVmware(connParam)
 
 	def startVM(self):
 		"""Override"""
@@ -149,7 +150,7 @@ class CommanderVmware(CommanderBase):
 			# create hard disks
 			log.info("\tCreating the hard disks...")
 			writeComment(f, "hard-disk")
-			self.hdd_list = section.get("hdds").data.values()
+			self.hdd_list = getSortedValues(section.get("hdds").data)
 			for hdd in self.hdd_list:
 				hdd_type = hdd.get("type")
 				if hdd_type == "scsi":
@@ -176,7 +177,7 @@ class CommanderVmware(CommanderBase):
 			# create cd drives
 			log.info("\tCreating the cd-drives...")
 			writeComment(f, "cd-rom")
-			self.cd_list = section.get("cd_drives").data.values()
+			self.cd_list = getSortedValues(section.get("cd_drives").data)
 			for cd in self.cd_list:
 				cd_type = "ide"
 				cd_pos = cd.get("pos")
@@ -191,7 +192,7 @@ class CommanderVmware(CommanderBase):
 			# create network interfaces
 			log.info("\tCreating the network interfaces...")
 			writeComment(f, "ethernet")
-			self.eth_list = section.get("eths").data.values()
+			self.eth_list = getSortedValues(section.get("eths").data)
 			for i, eth in enumerate(self.eth_list):
 				i = str(i)
 				eth_name = "ethernet" + i
@@ -201,6 +202,12 @@ class CommanderVmware(CommanderBase):
 				writeOption(f, eth_name + ".connectionType", eth_type)
 				tryWriteOption(f, eth_name + ".startConnected", eth, 
 						"connected")
+
+				# set the MAC address (if present)
+				mac = eth.get("hw_addr")
+				if mac:
+					writeOption(f, eth_name + ".addressType", "static")
+					writeOption(f, eth_name + ".address", mac)
 			writeNewLine(f)
 
 			# create pci-bridges to be able to add more devices
@@ -251,7 +258,7 @@ class CommanderVmware(CommanderBase):
 			idx_logical = 4
 			last_off = 1
 			executeCommandSSH("parted -s " + hdd_name + " mklabel msdos")
-			self.part_list = hdd.get("partitions").data.values()
+			self.part_list = getSortedValues(hdd.get("partitions").data)
 			for j, part in enumerate(self.part_list):
 				# create partitions
 				j = str(j)
@@ -297,7 +304,7 @@ class CommanderVmware(CommanderBase):
 			executeCommandSSH("cp -ax /mnt/old_hdd/* /mnt/new_hdd/")
 
 			# clone the UUID of the base partition to the new one
-			uuid_old = "aa" #executeCommandSSH('blkid /dev/sdb1')[1].split('"')[1]
+			uuid_old = executeCommandSSH('blkid /dev/sdb1')[1].split('"')[1]
 			executeCommandSSH("tune2fs -U " + uuid_old + " /dev/sdc1")
 
 		log.info("\tUpdate the MBR on the new system disk...")

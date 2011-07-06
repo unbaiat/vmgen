@@ -1,5 +1,6 @@
 from vmgConfigBase import ConfigBase
 from runCommands import *
+from vmgUtils import *
 
 class ConfigWindows(ConfigBase):
 	def __init__(self, data, vmx):
@@ -35,8 +36,7 @@ class ConfigWindows(ConfigBase):
 		""" Create groups. """
 		section = self.data.getSection("users")
 		groups = section.get("groups").data.values()
-		for group in groups:
-			group_name = group.get("name")
+		for group_name in groups:
 			self.config("net localgroup " + group_name + " /ADD")
 
 	def setupUsers(self):
@@ -51,8 +51,7 @@ class ConfigWindows(ConfigBase):
 			self.config("net user " + name + " " + passwd + " /ADD")
 
 			# add the user to the specified groups
-			# TODO: remove [ ]
-			for group in [user.get("groups")]:
+			for group in user.get("groups").replace(" ", "").split(","):
 				self.config("net localgroup " + group + " " + name + " /ADD")
 
 	def setupNetwork(self):
@@ -153,6 +152,3 @@ class ConfigWindows(ConfigBase):
 
 	def getNewRootPasswd(self):
 		return self.root_passwd
-
-def getSortedValues(d):
-	return [d[k] for k in sorted(d.iterkeys())]

@@ -120,7 +120,7 @@ class CommanderOpenvz(CommanderBase):
 					executeCommandSSH("vzctl exec " + vm_id + " ip r add default dev " + k)
 					
 			# simple venet interface
-			executeCommandSSH("vzctl set " + vm_id + " --ipadd " + 172.16.30.23 + " --save")
+			executeCommandSSH("vzctl set " + vm_id + " --ipadd " + "172.16.30.23" + " --save")
 			
 		except Exception as exc:
 			log.error("Cannot complete hardware configuration: " + str(exc))
