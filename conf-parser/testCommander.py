@@ -1,6 +1,6 @@
 from vmgCommanderDummy import CommanderDummy
 from vmgCommanderVmware import CommanderVmware
-from vmgCommanderOpenvz import CommanderOpenvz
+#from vmgCommanderOpenvz import CommanderOpenvz
 from vmgCommanderLxc import CommanderLxc
 from vmgInstallerDummy import InstallerDummy
 
@@ -11,13 +11,14 @@ from vmgInstallerDummy import InstallerDummy
 class testCommander():
     def __init__(self, vmtype, dumpFile):
         cmdSwitch = {   'vmware' : CommanderVmware,
-                        'openvz' : CommanderOpenvz,
+#                        'openvz' : CommanderOpenvz,
                         'lxc' : CommanderLxc
                         }
+        print vmtype, cmdSwitch[vmtype]
         try:
-            self.cmd = cmdSwitch[vmtype](dumpFile, None)
-        except Exception:
-            print 'Cannot create commander'
+            self.cmd = cmdSwitch[vmtype](dumpFile)
+        except Exception as e:
+            print 'Cannot create commander', e
 
     def create(self):    
         self.cmd.setupVM()

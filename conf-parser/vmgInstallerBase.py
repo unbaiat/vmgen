@@ -14,6 +14,6 @@ class InstallerBase:
 	def __init__(self):
 		pass
 
-	def install(self, program):
+	def install(self, programList):
 		""" Install program. """
 		pass

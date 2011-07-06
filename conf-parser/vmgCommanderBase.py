@@ -12,7 +12,7 @@ from vmgStruct import *
 		- vmgCommanderLxc
 		- vmgCommanderVirtualBox
 
-	Fro modularity, an instance of an installer (for program installation) is 
+	For modularity, an instance of an installer (for program installation) is 
 	provided:
 		- apt-get
 		- yum

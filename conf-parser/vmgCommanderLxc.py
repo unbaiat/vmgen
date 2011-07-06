@@ -7,6 +7,7 @@ import time
 from vmgLogging import *
 from writeFormat import *
 from vmgControlVmware import *
+from vmgUtils import *
 
 """ Functions to write lines in a .vmx file. """
 log = logging.getLogger("vmgen.vmgCommanderLxc")
@@ -75,8 +76,9 @@ class CommanderLxc(CommanderBase):
 		log.info("\tStarting the virtual machine...")
 		try_power_on_vm(self.vm)
 
-		# get root password
-		passwd = self.data.getSection("config").get("root_passwd")
+		# set default root password
+		passwd = "pass" 
+		#self.data.getSection("config").get("root_passwd")
 
 		# copy the needed scripts to the virtual machine
 		log.info("\tCopying the scripts to the virtual machine...")
@@ -91,26 +93,55 @@ class CommanderLxc(CommanderBase):
 		log.info("\tFilling up the network section in the config file...")
 		temp_file = "eth.tmp"
 		with open(temp_file, "w") as f:
+			log.info("\Setting memory and CPUs...")
+			section = self.data.getSection("hardware")
+			ram = section.get("ram") + "M"
+			num_cpu = int(section.get("num_cpu"))
+
+			if num_cpu == 1:
+				cpus = "0"
+			else:
+				cpus = "0" + "-" + str(num_cpu - 1)
+
+			# TODO: the kernel needs support for the memory controller
+			writeOption(f, "#lxc.cgroup.memory.limit_in_bytes", ram, False)
+			writeOption(f, "lxc.cgroup.cpuset.cpus", cpus, False)
+
 			# create network interfaces
 			log.info("\tCreating the network interfaces...")
-			section = self.data.getSection("hardware")
-			self.eth_list = section.get("eths").data.values()
-			for i, eth in enumerate(self.eth_list):
+			self.eth_list = getSortedValues(section.get("eths").data)
+			eth_config = getSortedValues(
+					self.data.getSection("network").get("eths").data)
+			for i, eth_pair in enumerate(zip(self.eth_list, eth_config)):
 				i = str(i)
+				eth, eth_c = eth_pair
+
 				eth_name = eth.get("name")
 				writeOption(f, "lxc.network.type", "veth", False)
 
-				# TODO: posibilitatea selectarii bridge-urilor
 				writeOption(f, "lxc.network.link", "br0", False)
 
 				writeOption(f, "lxc.network.name", eth_name, False)
 				writeOption(f, "lxc.network.mtu", "1500", False)
 
-				# TODO: luat ip-uri
-				writeOption(f, "lxc.network.ipv4", "1.2.3.4/24", False)
+				# set IP address
+				ip_type = eth_c.get("type")
+				if ip_type == "static":
+					ip = eth_c.get("address")
+					mask = getNetmaskCIDR(eth_c.get("network"))
+				else:
+					ip = "0.0.0.0"
+					mask = ""
+
+				writeOption(f, "lxc.network.ipv4", ip+mask, False)
 
 				if eth.contains("connected"):
 					writeOption(f, "lxc.network.flags", "up", False)
+
+				# set MAC address, if present
+				mac = eth.get("hw_address")
+				if mac:
+					writeOption(f, "lxc.network.hwaddr", mac)
 
 		# copy the temp file to the virtual machine
 		copyFileToVM(temp_file, self.host)
@@ -128,15 +159,16 @@ class CommanderLxc(CommanderBase):
 	def startVM(self):
 		""" Start the container. """
 		log.info("\tStarting the container...")
+		executeCommandSSH("pushd " + path)
 		executeCommandSSH("lxc-create" + " -n " + self.id + " -f " + self.config)
-		executeCommandSSH("lxc-start" + " -n " + self.id + " -f " + self.config)
+#		executeCommandSSH("lxc-start" + " -n " + self.id + " -f " + self.config)
 
 	def shutdownVM(self):
 		""" Shutdown the container and the virtual machine. """
 		log.info("\tStopping the container...")
-		executeCommandSSH("lxc-stop" + " -n " + self.id)
+#		executeCommandSSH("lxc-stop" + " -n " + self.id)
 		executeCommandSSH("lxc-destroy" + " -n " + self.id)
-#		executeCommandSSH("shutdown -h now")
+		executeCommandSSH("shutdown -h now")
 
 	def connectToVM(self):
 		print "\nEstablishing connection to the VM..."
@@ -144,29 +176,6 @@ class CommanderLxc(CommanderBase):
 	def disconnectFromVM(self):
 		print "\nTerminating connection to the VM..."
 
-	def setupConfigurations(self):
-		print "\nConfiguring system settings..."
-		section = self.data.getSection("config")
-		for k, v in section.items():
-			print k, "=", v
-
-	def setupNetwork(self):	
-		print "\nSetting up the network configurations..."
-		section = self.data.getSection("network")
-		for k, v in section.items():
-			print k, "=", v
-
-	def setupUsers(self):
-		print "\nAdding users..."
-		section = self.data.getSection("users")
-		for i, u in enumerate(section.get("users")):
-			print "Add user #", i
-			print "\tName: ", u["name"]
-			print "\tPassword: ", u["passwd"]
-			print "\tGroups: ", u["groups"]
-			print "\tHome directory: ", u["directory"]
-			print "\tPermissions: ", u["perm"]
-	
 	def setupServices(self):
 		print "\nInstalling services..."
 		section = self.data.getSection("services")
@@ -181,5 +190,3 @@ class CommanderLxc(CommanderBase):
 		print "\nInstalling GUI tools..."
 		section = self.data.getSection("gui")
 		self.installPrograms(section)
-	
-

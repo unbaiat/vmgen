@@ -31,9 +31,9 @@ mkdir -p $vmpath
 
 # download the minimal OS
 echo "====== download os ========"
-#rm -rf $rootfs
-#cp -r $rootfs.bak $rootfs
-febootstrap "fedora-$version" $rootfs
+rm -rf $rootfs
+cp -r $rootfs.base $rootfs
+#febootstrap "fedora-$version" $rootfs
 
 # configure the container devices
 echo "======= lxc-config.sh ====="
@@ -96,6 +96,8 @@ none rootfs.$name/sys sysfs defaults 0 0
 #none rootfs.$name/var/lock tmpfs defaults 0 0
 #none rootfs.$name/var/run tmpfs defaults 0 0
 #/etc/resolv.conf rootfs.$name/etc/resolv.conf none bind 0 0
+/usr/lib rootfs.$name/usr/lib none bind 0 0
+/lib rootfs.$name/lib none bind 0 0
 EOF
 
 echo "======= cleanup init scripts ====="
