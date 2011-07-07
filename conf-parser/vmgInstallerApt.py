@@ -49,31 +49,9 @@ packages = {
 
 install_cmd = " /usr/bin/apt-get install -y -q "
 
-runners = {
-	'vmware' : __executeVmware,
-	'openvz' : __executeOpenvz,
-	'lxc' : __executeLxc
-}
-
 class InstallerApt:
-	def __init__(self, vmx, type, id=None, user=None, passwd=None, host=None):
-		self.vmx = str(vmx)
-		self.id = str(id)
-		self.user = str(user)
-		self.passwd = str(passwd)
-		
-		self.runCmd = runners[type]
-		if host is not None:
-			setUserHost(host)
-		
-	def __executeVmware(self, cmd):
-		executeCommand("vmrun -t ws" + " -gu " + self.user + " -gp " + self.passwd + " runProgramInGuest " + self.vmx + " " + cmd)
-	
-	def __executeOpenvz(self, cmd):
-		executeCommandSSH("vzctl enter " + self.id + " --exec " + cmd + ";logout")
-		
-	def __executeLxc(self, cmd):
-		executeCommandSSH("lxc-execute -n " + self.id + " " + cmd)
+	def __init__(self, comm):
+		self.comm = comm
 		
 	def install(self, programs):
 		# Show warnings for unsupported programs
@@ -84,16 +62,16 @@ class InstallerApt:
 
 		# invalidate a line in sources.list that checks packages on cd-rom,
 		# causing the installer to block
-		self.runCmd("sed -i '/cdrom/s/^/# /' /etc/apt/sources.list")
+		self.comm.runCommand("sed -i '/cdrom/s/^/# /' /etc/apt/sources.list")
 		
 		# Retrieve only the list of valid programs
 		packs = [packages[p] for p in programs if p in packages]
 		if packs:
-			[self.runCmd(install_cmd + p['package']) for p in packs]
+			[self.comm.runCommand(install_cmd + p['package']) for p in packs]
 			
 # Testing
-vmx_path = "C:\Users\Arya\Documents\Virtual Machines\Debian-6"
-vmx_file = "Debian-6.vmx"
-vmx = "\"" + os.path.join(vmx_path, vmx_file) + "\""
-installer = InstallerApt(vmx, 'vmware', user='root', passwd='student')
-installer.install(['valgrind', 'httpd'])
+#vmx_path = "C:\Users\Arya\Documents\Virtual Machines\Debian-6"
+#vmx_file = "Debian-6.vmx"
+#vmx = "\"" + os.path.join(vmx_path, vmx_file) + "\""
+#installer = InstallerApt(vmx, 'vmware', user='root', passwd='student')
+#installer.install(['valgrind', 'httpd'])

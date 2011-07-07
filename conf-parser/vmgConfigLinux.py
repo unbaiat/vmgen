@@ -22,8 +22,8 @@ class ConfigLinux(ConfigBase, communicator):
 		self.config("sysctl kernel.hostname=\"" + hostname + "\"")
 
 		# set Administrator password
-		rootPasswd = section.get("root_passwd")
-		self.config("echo " + rootPasswd + " | passwd --stdin root")
+		self.rootPasswd = section.get("root_passwd")
+		self.config("echo " + self.rootPasswd + " | passwd --stdin root")
 
 	def setupGroups(self):
 		""" Create groups. """
@@ -69,7 +69,6 @@ class ConfigLinux(ConfigBase, communicator):
 			type = eth.get('type')
 			if type == 'static':
 				# static addresses
-				hw_address = eth.get('hw_addr')
 				address = eth.get('address')
 				network = eth.get('network')
 
@@ -79,7 +78,6 @@ class ConfigLinux(ConfigBase, communicator):
 				self.config("ip link set dev " + i + " address " + hw_address)
 				# TODO: netmask
 			if type == 'dhcp':
-				hw_address = eth.get('hw_addr')
 				# mac
 				self.config("ip link set dev " + i + " address " + hw_address)
 				# TODO: config eth to dhcp (edit /etc/network/interfaces)
@@ -123,3 +121,6 @@ class ConfigLinux(ConfigBase, communicator):
 
 		# remove the temp script from the local machine
 		os.remove(temp_file)
+		
+	def getNewRootPasswd():
+		return self.rootPasswd
