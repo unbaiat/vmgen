@@ -134,12 +134,14 @@ class CommanderVmware(CommanderBase):
 		log.info("Creating the hardware configuration...")
 		section = self.data.getSection("hardware")
 		self.os = section.get("os")
-
 		self.id = section.get("vm_id")
 		self.vmx_file = new_machine_dir + self.id + ".vmx"
 
 		self.communicator = CommunicatorVmware(self.vmx_file, 
 				aux_modules[self.os]["user"], aux_modules[self.os]["passwd"])
+
+		shutil.rmtree(new_machine_dir)
+		os.makedirs(new_machine_dir)
 
 		with open(self.vmx_file, "w") as f:
 			# write header in the .vmx file
@@ -357,7 +359,7 @@ class CommanderVmware(CommanderBase):
 		executeCommand("zip -r " + arch_name + " " + files)
 
 		os.chdir(cwd)
-		return new_machine_dir + arch_name
+		return [arch_name, new_machine_dir]
 
 	def getConfigInstance(self):
 		config = aux_modules[self.os]["config"]
@@ -381,3 +383,6 @@ class CommanderVmware(CommanderBase):
 			return None
 
 		return None
+	
+	def getModuleName(self):
+		return "vmware"

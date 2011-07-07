@@ -68,6 +68,8 @@ class CommanderLxc(CommanderBase):
 		script = distro[os_type]["script"]
 
 		self.config = path + "/" + self.id + "/" + "config." + self.id
+		self.roots = path + "/" + self.id + "/" + "rootfs." + self.id
+		self.fstab = path + "/" + self.id + "/" + "fstab." + self.id
 
 		# set the user and host used for the SSH connection
 		setUserHost(self.host)
@@ -190,3 +192,17 @@ class CommanderLxc(CommanderBase):
 		print "\nInstalling GUI tools..."
 		section = self.data.getSection("gui")
 		self.installPrograms(section)
+
+	def createArchive(self):
+		executeCommandSSH("cd " + path)
+		files = self.config + " " + self.fstab + " " + self.rootfs
+
+		arch_name = self.id + ".zip"
+
+		executeCommandSSH("zip -r " + arch_name + " " + files)
+		copyFileFromVM(path + "/" +  arch_name, "./", self.host)
+
+		return [arch_name, ""]
+
+	def getModuleName(self):
+		return "lxc"
