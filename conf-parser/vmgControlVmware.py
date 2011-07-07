@@ -11,7 +11,6 @@ def connect_to_vm(vmx_path):
 	Returns a pair: (a handle for the connection to the host, a
 	virtual machine handle)"""
 
-
 	try:
 		# try defaults
 		host = pyvix.vix.Host()
@@ -75,14 +74,17 @@ def try_power_on_vm(vmx_path):
 
 	global host, vm
 
-	tools_timeout = 120
+	tools_timeout = 200
 
 	(host, vm) = connect_to_vm(vmx_path)
 
 	power_on(vm)
 	if not wait_for_tools_with_timeout(vm, tools_timeout):
 		# no tools, nothing to do.
-		return False
+		return vm
 
 	time.sleep(5)
-	return True
+	return vm
+
+def power_off_vm(vm):
+	vm.powerOff()

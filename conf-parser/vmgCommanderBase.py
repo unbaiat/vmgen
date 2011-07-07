@@ -64,6 +64,9 @@ class CommanderBase:
 
 		self.shutdownVM()
 
+		arch_name = self.createArchive()
+		print arch_name + " was created."
+
 	def startVM(self):
 		""" Power on the VM. """
 		pass
@@ -102,6 +105,10 @@ class CommanderBase:
 
 	def setupGuiTools(self):
 		""" Install graphical applications on the guest OS. """
+		pass
+
+	def createArchive(self):
+		""" Create an archive containing the VM. """
 		pass
 
 

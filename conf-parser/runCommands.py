@@ -14,10 +14,10 @@ def executeCommand(command):
 	"""
 	args = shlex.split(command)
 	log.debug("Executing command: " + command)
-	print "Execute: ", args
+#	print "Execute: ", args
 	p = Popen(args, stdout=PIPE)
 	s = p.communicate()
-	print p.returncode
+	log.debug("\tReturn code: " + str(p.returncode))
 	return (p.returncode, s[0])
 
 	return (0, "")

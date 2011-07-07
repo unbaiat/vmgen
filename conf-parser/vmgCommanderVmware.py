@@ -17,6 +17,8 @@ from vmgInstallerWindows import *
 from vmgConfigWindows import *
 #from vmgConfigLinux import *
 
+from vmgCommunicatorVmware import *
+
 """ Functions to write lines in a .vmx file. """
 log = logging.getLogger("vmgen.vmgCommanderVmware")
 
@@ -109,18 +111,10 @@ aux_modules = {
 		}
 
 class CommanderVmware(CommanderBase):
-#	def __init__(self):
-#		connParam = {
-#			'vmx' : 'path/to/vmx',
-#			'user' : 'user',
-#			'pwd' : 'pwd'
-#		}
-#		self.comm = CommunicatorVmware(connParam)
-
 	def startVM(self):
 		"""Override"""
 		log.info("Starting the VM...")
-		try_power_on_vm(self.vmx_file)
+		self.vm = try_power_on_vm(self.vmx_file)
 
 	def shutdownVM(self):
 		"""Override"""
@@ -133,13 +127,16 @@ class CommanderVmware(CommanderBase):
 	def disconnectFromVM(self):
 		"""Override"""
 		log.info("Terminating connection to the VM...")
+		power_off_vm(self.vm)
 
 	def setupHardware(self):
 		"""Override"""
 		log.info("Creating the hardware configuration...")
 		section = self.data.getSection("hardware")
 		self.os = section.get("os")
-		self.vmx_file = new_machine_dir + "machine.vmx"
+
+		self.id = section.get("vm_id")
+		self.vmx_file = new_machine_dir + self.id + ".vmx"
 
 		self.communicator = CommunicatorVmware(self.vmx_file, 
 				aux_modules[self.os]["user"], aux_modules[self.os]["passwd"])
@@ -150,13 +147,14 @@ class CommanderVmware(CommanderBase):
 			writeOption(f, "config.version", "8")
 			writeOption(f, "virtualHW.version", "7")
 			tryWriteOption(f, "guestOs", section, "os")
-			tryWriteOption(f, "displayName", section, "vm_id")
+			writeOption(f, "displayName", self.id)
 			tryWriteOption(f, "numvcpus", section, "num_cpu")
 			tryWriteOption(f, "memsize", section, "ram")
 			writeNewLine(f)
 			
 			# create hard disks
 			log.info("\tCreating the hard disks...")
+			self.hdds = []
 			writeComment(f, "hard-disk")
 			self.hdd_list = getSortedValues(section.get("hdds").data)
 			for hdd in self.hdd_list:
@@ -179,6 +177,8 @@ class CommanderVmware(CommanderBase):
 				executeCommand("vmware-vdiskmanager -c -s " + hdd_size +
 						" -a " + adapter + " -t 0 " + 
 						new_machine_dir + hdd_name)
+
+				self.hdds.append(hdd_name)
 
 			writeNewLine(f)
 
@@ -255,7 +255,7 @@ class CommanderVmware(CommanderBase):
 
 		# start VMaster
 		log.info("\tPowering up the VMaster machine...")
-		try_power_on_vm(vmaster_vmx)
+		self.vmaster = try_power_on_vm(vmaster_vmx)
 
 		# setup the partitions
 		log.info("\tPartitioning the new disks...")
@@ -324,7 +324,8 @@ class CommanderVmware(CommanderBase):
 			# Windows or GRUB1
 			executeCommandSSH("dd if=/dev/sdb of=/dev/sdc bs=446 count=1")
 
-		executeCommandSSH("shutdown -h now")
+		power_off_vm(self.vmaster)
+#		executeCommandSSH("shutdown -h now")
 
 	def setupServices(self):
 		"""Override"""
@@ -343,6 +344,20 @@ class CommanderVmware(CommanderBase):
 		log.info("Installing GUI tools...")
 		section = self.data.getSection("gui")
 		self.installPrograms(section)
+
+	def createArchive(self):
+		cwd = os.getcwd()
+		os.chdir(new_machine_dir)
+		files = self.id + ".vmx"
+		for d in self.hdds:
+			files += " " + d
+
+		arch_name = self.id + ".zip"
+
+		executeCommand("zip -r " + arch_name + " " + files)
+
+		os.chdir(cwd)
+		return new_machine_dir + arch_name
 
 	def getConfigInstance(self):
 		config = aux_modules[self.os]["config"]

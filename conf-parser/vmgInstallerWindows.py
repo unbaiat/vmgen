@@ -178,12 +178,11 @@ class InstallerWindows(InstallerBase):
 #				f.write("PAUSE\n")
 
 			# copy the archive-install script file to the guest
-			self.communicator.copyFileFromHostToGuest(install_archive_script,
+			self.communicator.copyFileToVM(install_archive_script, 
 					remote_install_archive)
 
 			# copy the temp script file to the guest
-			self.communicator.copyFileFromHostToGuest(arch_file, 
-					remote_arch_file)
+			self.communicator.copyFileToVM(arch_file, remote_arch_file)
 
 			# copy the temp script file to the guest
 			# execute the temp script on the guest

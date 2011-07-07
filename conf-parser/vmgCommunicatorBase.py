@@ -1,5 +1,6 @@
 from runCommands import *
 import os
+from vmgLogging import *
 
 """
 	A base communicator class (abstract), which provides a generic interface for

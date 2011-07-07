@@ -1,3 +1,5 @@
+from vmgCommunicatorBase import *
+
 log = logging.getLogger("vmgen.vmgCommunicatorVmware")
 
 class CommunicatorVmware(CommunicatorBase):
