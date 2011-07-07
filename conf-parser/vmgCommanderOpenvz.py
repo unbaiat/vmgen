@@ -1,6 +1,9 @@
 from vmgCommanderBase import CommanderBase
 from vmgCommunicatorOpenvz import *
 from vmgInstallerDummy import InstallerDummy
+from vmgInstallerApt import InstallerApt
+from vmgInstallerYum import InstallerYum
+from vmgConfigLinux import ConfigLinux
 from runCommands import *
 from vmgLogging import *
 from vmgControlVmware import *
@@ -22,10 +25,10 @@ installer = {
 }
 
 class CommanderOpenvz(CommanderBase):
-	def __init__(self):
+	def __init__(self, dumpFile):
 		CommanderBase.__init__(self, dumpFile)
 		vm_id = self.data.getSection("hardware").get("vm_id")
-		self.comm = CommunicatorOpenvz(vmx=vm, host=host, id=vm_id)
+		self.communicator = CommunicatorOpenvz(vmx=vm, host=host, id=vm_id)
 
 	def startVM(self):
 		try:
@@ -41,13 +44,17 @@ class CommanderOpenvz(CommanderBase):
 			log.debug("Stop container ...")
 			executeCommandSSH("vzctl stop " + vm_id)
 			# Build archive and retrieve it
-			executeCommandSSH("tar czf fs.tar $VZDIR/private/" + vm_id)
-			executeCommandSSH("tar czf " + vm_id + ".tar /etc/vz/conf/" + vm_id + ".conf fs.tar")
-			copyFileFromVM(vm_id + ".tar", host)
 			#log.debug("Destroy container ...")
 			#executeCommandSSH("vzctl destroy " + vm_id)
 		except Exception as exc:
 			log.error("Cannot stop container: " + str(exc))
+
+	def createArchive(self):
+		vm_id = self.data.getSection('hardware').get('vm_id')
+		executeCommandSSH("tar -czf fs.tar.gz /vz/private/" + vm_id + "/")
+		executeCommandSSH("tar -czf " + vm_id + ".tar.gz /etc/vz/conf/" + vm_id + ".conf fs.tar.gz")
+		copyFileFromVM(vm_id + ".tar.gz", ".", host)
+		return vm_id + ".tar.gz"
 
 	def connectToVM(self):
 		print "Establishing connection to the VM..."
@@ -99,9 +106,12 @@ class CommanderOpenvz(CommanderBase):
 			# interfaces
 			if section.contains("eths"):
 				for k, v in section.get("eths").items():
-					executeCommandSSH("vzctl stop " + vm_id)
+					print v
+					print v.get('type')
+
+					# executeCommandSSH("vzctl stop " + vm_id)
 					executeCommandSSH(setup_cmd + " --netif_add " + k + " --save")
-					self.startVM()
+					#self.startVM()
 
 					# TODO: add this to a script to run at container start
 					# on host vm
@@ -117,7 +127,7 @@ class CommanderOpenvz(CommanderBase):
 					executeCommandSSH("vzctl exec " + vm_id + " ip r add default dev " + k)
 					
 			# simple venet interface
-			executeCommandSSH("vzctl set " + vm_id + " --ipadd " + "172.16.30.23" + " --save")
+			# executeCommandSSH("vzctl set " + vm_id + " --ipadd " + "172.16.30.23" + " --save")
 			
 		except Exception as exc:
 			log.error("Cannot complete hardware configuration: " + str(exc))
@@ -138,11 +148,11 @@ class CommanderOpenvz(CommanderBase):
 		#self.installPrograms(section)
 
 	def getConfigInstance(self):
-		return ConfigLinux(self.data, self.comm)
+		return ConfigLinux(self.data, self.communicator)
 
 	def getInstallerInstance(self):
 		vm_id = self.data.getSection("hardware").get("vm_id")
 		for k in installer.keys():
 			if str(k) in vm_id:
-				return installer[k](self.comm)
+				return installer[k](self.communicator)
 		return None

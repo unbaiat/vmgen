@@ -1,6 +1,6 @@
 from vmgCommanderDummy import CommanderDummy
 from vmgCommanderVmware import CommanderVmware
-#from vmgCommanderOpenvz import CommanderOpenvz
+from vmgCommanderOpenvz import CommanderOpenvz
 from vmgCommanderLxc import CommanderLxc
 from vmgInstallerDummy import InstallerDummy
 
@@ -11,7 +11,7 @@ from vmgInstallerDummy import InstallerDummy
 class testCommander():
     def __init__(self, vmtype, dumpFile):
         cmdSwitch = {   'vmware' : CommanderVmware,
-#                        'openvz' : CommanderOpenvz,
+                        'openvz' : CommanderOpenvz,
                         'lxc' : CommanderLxc
                         }
         print vmtype, cmdSwitch[vmtype]
