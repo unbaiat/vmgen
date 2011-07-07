@@ -23,12 +23,9 @@ installer = {
 
 class CommanderOpenvz(CommanderBase):
 	def __init__(self):
+		CommanderBase.__init__(self, dumpFile)
 		vm_id = self.data.getSection("hardware").get("vm_id")
-		connParam = { 	'vmx' : vm,
-						'host' : host,
-						'id' : vm_id
-					}
-		self.comm = CommunicatorOpenvz(connParam)
+		self.comm = CommunicatorOpenvz(vmx=vm, host=host, id=vm_id)
 
 	def startVM(self):
 		try:

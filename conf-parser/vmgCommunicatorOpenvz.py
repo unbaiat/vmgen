@@ -1,3 +1,6 @@
+from vmgCommunicatorBase import *
+from vmgLogging import *
+
 log = logging.getLogger("vmgen.vmgCommunicatorOpenvz")
 key = "-i vmaster_key.private"
 
@@ -26,10 +29,10 @@ class CommunicatorOpenvz(CommunicatorBase):
 		"""
 			Copy the specified file to the virtual machine
 		"""
-		executeCommand("scp " + key + " " + localPath + " " + self.host + ":$VZDIR/root/" + self.id + remotePath)
+		executeCommand("scp " + key + " " + localPath + " " + self.host + ":$VZDIR/root/" + self.id + "/" + remotePath)
 	
 	def deleteFileInGuest(self, remotePath):
 		"""
 			Delete the specified file from the virtual machine
 		"""
-		executeCommandSSH("rm -rf $VZDIR/root/" + self.id + file)
+		executeCommandSSH("rm -rf $VZDIR/root/" + self.id + "/" + file)

@@ -128,32 +128,10 @@ local_cmd = " yum -y -d 0 -e 0 localinstall --nogpgcheck "
 simple_cmd = " yum -y -d 0 -e 0 install "
 group_cmd = " yum -y -d 0 -e 0 groupinstall "
 
-runners = {
-	'vmware' : __executeVmware,
-	'openvz' : __executeOpenvz,
-	'lxc' : __executeLxc
-}
-
-class InstallerApt:
-	def __init__(self, vmx, type, id=None, user=None, passwd=None, host=None):
-		self.vmx = str(vmx)
-		self.id = str(id)
-		self.user = str(user)
-		self.passwd = str(passwd)
+class InstallerYum:
+	def __init__(self, comm):
+		self.comm
 		
-		self.runCmd = runners[type]
-		if host is not None:
-			setUserHost(host)
-		
-	def __executeVmware(self, cmd):
-		executeCommand("vmrun -t ws" + " -gu " + self.user + " -gp " + self.passwd + " runProgramInGuest " + self.vmx + " " + cmd)
-	
-	def __executeOpenvz(self, cmd):
-		executeCommandSSH("vzctl enter " + self.id + " --exec " + cmd + ";logout")
-		
-	def __executeLxc(self, cmd):
-		executeCommandSSH("lxc-execute -n " + self.id + " " + cmd)
-
 	def install(self, programs):
 		# Show warnings for unsupported programs
 		errs = [p for p in programs if not p in packages]
@@ -166,27 +144,25 @@ class InstallerApt:
 		if packs:
 			for p in packs:
 				if p['type'] == 'simple':
-					self.runCmd(simple_cmd + p['package'])
+					self.comm.runCommand(simple_cmd + p['package'])
 				if p['type'] == 'group':
-					self.runCmd(group_cmd + p['package'])
+					self.comm.runCommand(group_cmd + p['package'])
 				if p['type'] == 'repo':
-					# copy repo file in /
-					copyFileToVM(p['repo'], self.host)
-					# copy repo file to specific container
-					executeCommandSSH("mv *.repo $VZDIR/root/" + self.id)
+					# copy repo file in container
+					self.comm.copyFileToVM(p['repo'], "repo.repo")
 					# do the stuff
-					self.runCmd(simple_cmd + p['package'])
+					self.comm.runCommand(simple_cmd + p['package'])
 				if p['type'] == 'local':
 					# copy rpm to root
-					copyFileToVM(p['rpm'], self.host)
+					self.comm.copyFileToVM(p['rpm'], ".")
 					# execute
-					self.runCmd(local_cmd + p['package'])
+					self.comm.runCommand(local_cmd + p['package'])
 					# remove rpm
-					self.execute("rm -rf *.rpm")
+					self.comm.runCommand("rm -rf *.rpm")
 					
 # Testing
-vmx_path = "C:\Users\Arya\Documents\Virtual Machines\Fedora-15"
-vmx_file = "Fedora-15.vmx"
-vmx = "\"" + os.path.join(vmx_path, vmx_file) + "\""
-installer = InstallerYum(vmx, 'vmware', user='root', passwd='student')
-installer.install(['valgrind', 'emacs'])
+#vmx_path = "C:\Users\Arya\Documents\Virtual Machines\Fedora-15"
+#vmx_file = "Fedora-15.vmx"
+#vmx = "\"" + os.path.join(vmx_path, vmx_file) + "\""
+#installer = InstallerYum(vmx, 'vmware', user='root', passwd='student')
+#installer.install(['valgrind', 'emacs'])
