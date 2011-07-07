@@ -12,7 +12,7 @@ def main(vmtype, infile):
 	# call parser
 	parser = vmgParser(infile)
 	parser.parse()
-	dumpFile = infile + '.dump'
+	dumpFile = "[" + vmtype + "]" + infile + '.dump'
 	parser.dump(dumpFile)
 
 	# call commander

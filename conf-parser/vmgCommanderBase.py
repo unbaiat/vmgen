@@ -1,4 +1,6 @@
 from vmgStruct import *
+import shutil
+import datetime
 
 """
 	A base commander class (abstract), which uses the data parsed from the
@@ -19,6 +21,9 @@ from vmgStruct import *
 		- install from sources
 		- Windows installer
 """
+
+finished_dir = "finished/"
+url = "http://10.38.135.232/machines/"
 
 class CommanderBase:
 	def __init__(self, dumpFile):
@@ -64,8 +69,16 @@ class CommanderBase:
 
 		self.shutdownVM()
 
-		arch_name = self.createArchive()
-		print arch_name + " was created."
+		arch_name, arch_dir = self.createArchive()
+
+		now = datetime.datetime.now()
+		new_name = "[" + now.strftime("%Y-%m-%d %H:%M") + "][" + \
+				self.getModuleName() + "] " + arch_name 
+
+		print
+		print "Done. " + new_name + " was created."
+		shutil.move(arch_dir + arch_name, finished_dir + new_name)
+		print "You can download the created machine from " + url
 
 	def startVM(self):
 		""" Power on the VM. """
@@ -134,3 +147,6 @@ class CommanderBase:
 
 	def getInstallerInstance(self):
 		return None
+
+	def getModuleName(self):
+		return ""
