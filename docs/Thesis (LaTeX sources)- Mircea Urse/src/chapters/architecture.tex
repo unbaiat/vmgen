@@ -1,0 +1,600 @@
+\chapter{Application Architecture}
+\label{chapter:architecture}
+
+\section{Application Deployment And User Interaction}
+\label{sec:app-deploy}
+\project is designed to run as a service on a configured remote server. After
+it is started, it begins to listen for user requests. At the moment, it cannot
+process multiple requests simultaneously, they are processed sequentially. The
+reason why it has to run on a configured server is that, in the process of
+generating the requested machines, it needs to use some preinstalled virtual
+machines, and some installation kits for the applications to be installed. The
+preinstalled virtual machines cannot be accessed concurrently, and there needs
+to be implemented a synchronization mechanism to enforce mutual exclusion. At
+the moment, a request gains exclusive access during the whole process. In the
+future, it should be changed so that a requests needs to gain exclusive access
+only on the critical sections of the process.
+
+The application receives a configuration file as input and generates an archive
+containing the generated virtual machine after it has finished the generating
+process. At the moment, the user can write himself the whole configuration
+file, or he can use our \textbf{vmgCtl} utility to alter an existing
+configuration file; an example of usage is shown in
+\labelindexref{Listing}{lst:vmgctl-exp}. There is no Web interface for now, but
+it will be implemented in the future, as it will be presented in
+\labelindexref{Section}{sec:future-gui}. No matter what frontend is added, it
+generates a configuration file based on the user input, and passes the
+generated file to the main application, which is not aware of the frontend.
+
+\lstset{caption=vmgCtl usage example,label=lst:vmgctl-exp}
+\begin{lstlisting}
+./vmgCtl.py config-debian.conf hardware.num_cpu=2
+\end{lstlisting}
+
+\subsection{The Programming Language}
+\label{sub-sec:prog-lang}
+The application code is written in \textbf{Python}. The reason we chose Python
+was because it is very easy to write code in it, and the code is more readable
+than C code, for example. Python has a large collection of features that are
+already implemented that we could use (command execution, file manipulation,
+archive file manipulation, list comprehension etc.). We could focus on
+implementing the application features rather than re-implementing the small
+pieces of code for different operations. Also, the written code is
+cross-platform, so it could be run either on a Linux machine or on a Windows
+one. The application doesn't need critical performance to run, so the slower
+execution of Python code is not a problem.
+
+\subsection{Configuration File}
+\label{sub-sec:config-file}
+The configuration file is a plain text file, with the extension \textbf{.conf},
+in a modified
+\textbf{INI}\footnote{\url{http://en.wikipedia.org/wiki/INI\_file}} format.
+Besides the sections, the configuration file has also nested subsection,
+defined by using multiple square braces, according to the nesting level. An
+alternative format would be
+\textbf{XML}\footnote{\url{http://en.wikipedia.org/wiki/Xml}}, but the file
+would get even larger than it is and would not be very easily readable and
+editable by the user. A detailed description of each section and examples
+follow. The currently supported options are available on the project
+wiki\footnote{\url{http://ixlabs.cs.pub.ro/redmine/projects/vmgen/wiki/SupportedOptions}}.
+
+\subsubsection{The hardware section}
+\label{sub-sub-sec:hardware-sec}
+In the \textbf{hardware} section, the user describes the hardware
+characteristics of the machine. The available options are different between the
+used virtualization solutions, but most of them are common among all the
+solutions. The user can specify the ID of the virtual machine (name or number),
+the operating system, the number of processors, the available physical memory,
+the number of hard disks and their parameters, the partitioning details for
+each of them, the CD drives, the network adapters. 
+
+\lstset{caption=sample hardware section,label=lst:hardware-section}
+\begin{lstlisting}
+[hardware]
+	vm_id = TestMachine
+	os = winxppro
+	num_cpu = 2
+	ram = 512
+	[[hdds]]
+		[[[hdd0]]]
+		size = 8GB
+		type = ide
+		scsi_index = 0
+		pos = 0:0
+		name = hdd.vmdk
+		[[[[partitions]]]]
+			[[[[[partition0]]]]]
+			type = primary
+			fs = ntfs
+			size = 5000
+			...
+		...
+	[[cd_drives]]
+		[[[cd_drive0]]]
+		pos = 1:0
+		path = /path/to/iso
+		connected = 1
+		...
+	[[eths]]
+		[[[eth0]]]
+			type = nat
+			connected = 1
+			hw_addr = 01:00:de:ad:be:ef
+		...
+\end{lstlisting}
+
+A very important field is \textbf{os}. It specifies the OS which will run in
+the virtual machine, along with its architecture (ubuntu-64, fedora, winxxppro,
+windows7-64 etc). The identifiers are the ones used in VMware machine
+description files. All the OS dependent selections (the OS installation,
+\textbf{Config} and \textbf{Installer} modules instantiation, system disk
+cloning) will be made based on this field. The application has dictionaries
+indexed by the OS identifier, whose keys are the various alternatives. For more
+details about the subject, see \labelindexref{Section}{sec:vmware-os}.
+
+
+\subsubsection{The config section}
+\label{sub-sub-sec:config-sec}
+The \textbf{config} section is used to specify some system parameters, like the
+password for the root user (or Administrator, on Windows), the hostname,
+additional repositories (for \textbf{apt} or \textbf{yum}) etc. These are
+generic settings that do not fall in the other categories (network, users,
+services, applications).
+
+\lstset{caption=sample config section (Linux guest),label=lst:config-section}
+\begin{lstlisting}
+[config]
+	root_passwd = pass
+	hostname = trudy
+	bash_completion = 1
+	[[repos]]
+		repo0 = deb http://http.us.debian.org/debian stable main contrib non-free
+	...
+\end{lstlisting}
+
+\subsubsection{The users section}
+The \textbf{config} contains the information about the groups and the users in
+the new system. All the groups from the \textbf{groups} subsection are created.
+The users from the \textbf{users} subsection are created with the specified
+name, password and home directory, and they are added to the specified groups
+afterwards.
+
+\label{sub-sub-sec:users-sec}
+\lstset{caption=sample users section (Windows guest),label=lst:users-section}
+\begin{lstlisting}
+[users]
+	[[groups]]
+		group0 = julius
+		group1 = vmg
+		...
+	[[users]]
+		[[[user0]]]
+			name = caesar
+			passwd = alesia
+			groups = julius
+			home_dir = C:\Users\caesar
+		[[[user1]]]
+			name = vv
+			passwd = pass
+			groups = vmg
+			home_dir = C:\Users2\vv
+		...
+\end{lstlisting}
+
+
+\subsubsection{The network section}
+\label{sub-sub-sec:network-sec}
+The \textbf{network} section is a larger one, and it groups all the
+configurations available for networks: network applications, network adapter
+configurations, firewall rules.
+
+The network adapter configurations are a little different between Linux and
+Windows guests. There are some common properties, like the type of addresses
+(static or dynamic), the IP address, the network mask. These are specified for
+each adapter. The difference is at the DNS address and the gateway. On Linux,
+we have global DNS servers (in \file{/etc/resolv.conf}) and a single default
+gateway, with multiple additional routes. On the other hand, in Windows, each
+network adapter has its own gateway and DNS addresses. Therefore, for Linux
+guests, there are global properties for the DNS and gateway, and for Windows,
+the properties are for each adapter.
+
+The firewall can also be configured. The user can specify a list of ports to be
+opened, along with the protocol and a short description for each port. If the
+user wants to specify more complex firewall rules, he can specify in the
+\textbf{firewall-rules} subsection the exact commands (\cmd{iptables} on
+Linux or \cmd{netsh firewall} on Windows) to be run on the machine. It is
+not a very good practice to run the exact commands provided by the user,
+because he can try to run some malicious code, but these commands are executed
+only inside the virtual machine, and only this will be affected, not the
+physical machine running the service.
+
+\lstset{caption=sample network section (Windows guest),label=lst:network-section}
+\begin{lstlisting}
+[network]
+	[[eths]]
+		[[[eth0]]]
+			type = static
+			address = 192.168.1.2
+			network = 255.255.255.0
+			gateway = 192.168.1.1
+			dns = 192.168.1.254
+		[[[eth1]]]
+			type = dhcp
+		...
+	[[open_ports]]
+		[[[port0]]]
+			proto = tcp
+			port = 22
+			description = ssh
+		[[[port1]]]
+			proto = all
+			port = 65000
+			description = myport
+		...
+\end{lstlisting}
+
+\subsubsection{The devel section}
+\label{sub-sub-sec:devel-sec}
+The \textbf{devel} section specifies the development tools to be installed:
+development environments, compilers, profilers, debuggers, libraries etc.
+
+\lstset{caption=sample devel section (Linux guest),label=lst:devel-section}
+\begin{lstlisting}
+[devel]
+	vim = 1
+	emacs = 1
+	eclipse = 1
+	build-utils = 1
+	kernel-devel = 1
+	valgrind = 1
+	python = 1
+	php = 1
+	tcl = 1
+	...
+\end{lstlisting}
+
+
+\subsubsection{The services section}
+\label{sub-sub-sec:services-sec}
+In the \textbf{services} section are specified the services to be installed on
+the machine. The main options here are servers, like Web, mail, DNS, DHCP, FTP
+etc. There aren't many parameters to configure for them at the moment, but it
+might be a good feature to work on in the future. One of the reasons why this
+feature is not implemented yet is that there has to be a way to specify these
+options in the config file and we didn't find a suitable way to do that. 
+
+\lstset{caption=sample services section,label=lst:services-section}
+\begin{lstlisting}
+[services]
+	httpd = 1
+	dns-server = 1
+	dhcp-server = 1
+	ftp-server = 1
+	sshd = 1
+	svn = 1
+	git = 1
+	...
+\end{lstlisting}
+
+
+\subsubsection{The gui section}
+\label{sub-sub-sec:gui-sec}
+The \textbf{gui} section lists the applications to be installed, which need a
+graphical environment to run (non-CLI).
+
+\lstset{caption=sample gui section,label=lst:gui-section}
+\begin{lstlisting}
+[gui]
+	mozilla-firefox = 1
+	google-chrome = 1
+	mozilla-thunderbird = 1
+	wireshark = 1
+	...
+\end{lstlisting}
+
+\section{Modules Description}
+\label{sec:mod-desc}
+
+\project consists of several modules. \labelindexref{Figure}{img:vmgen-uml}
+gives an overview over the general architecture of the application. The modules
+and the relationship between them will be described in detail below.  The
+application is executed in command line, and needs to receive as arguments the
+virtualization solution (vmware, lxc, openvz so far) and the configuration
+file. A parser module reads the file and passes the retrieved data to the main
+generation process. The generation process consists of various stages. The
+main stages are \textbf{hardware generation}, \textbf{system configuration} and
+\textbf{application installation}. The operations executed in these stages can
+be applied to more than one configuration. For example, in the \textbf{hardware
+generation} stage, the operations are almost OS independent, and are different
+only across the virtualization solutions. In the \textbf{system configuration}
+stage, the operations are distribution and virtualization solution independent,
+and are common for each OS family (Linux and Windows).  The \textbf{application
+installation} stage is common for each installer type (\textbf{apt},
+\textbf{yum}, \textbf{source installation} for Linux, or the installation kits
+on Windows). Also, a very important component, used in all the other one is the
+one responsible for the communication with the virtual machine. The operations
+needed to communicate with a given machine are dependent only on the machine
+type (virtualization solution used).
+
+\fig[scale=0.35]{src/img/vmgen-uml.pdf}{img:vmgen-uml}{\project architecture}
+
+Given these observations, we tried to design the application to be modular. One
+of our goals was to not have duplicated code, so we grouped the operations that
+could be used in more than one place in a separate module and use that module
+instead. This provides easier code maintenance. The other goal was to design an
+extensible application. If later on someone wants to add support for a new
+feature (a new virtualization solution, new applications to be installed etc.),
+it is sufficient to create a new corresponding module, link it in the main
+application, and use the already implemented modules where needed. 
+
+In \labelindexref{Figure}{img:app-flow} is presented the virtual machine
+generation process, from input to output. I will give a short overview over the
+functionality of the modules. Each module will be detailed in the next
+subsections. The user provides the configuration file for the machine he wishes
+to get. The \textbf{Parser} loads the file into memory and passes it to a
+\textbf{Commander}. The \textbf{Commander} generates the hardware of the
+machine and configures the OS, then it instantiates a \textbf{Config} and a
+\textbf{Installer} module. The \textbf{Config} makes the necessary system
+settings (users, network etc.). The \textbf{Installer} installs the requested
+applications and services. Then, an archive containing the virtual machine is
+created and made available to the user to download it. 
+
+\fig[scale=0.35]{src/img/application-flow.pdf}{img:app-flow}{VM generation process}
+
+\subsection{Configuration File Parser}
+\label{sub-sec:parser}
+The parser is a simple module, which uses the
+\textbf{ConfigObj}\footnote{\url{http://wiki.python.org/moin/ConfigObj}}
+module, from the Python library to parse the configuration file and store it in
+a \textbf{vmgStruct} structure. After the structure is created and populated
+into memory, it is serialized in a dump file, using the
+\textbf{pickle}\footnote{\url{http://docs.python.org/library/pickle.html}}
+module (also from the Python library), in orderd to be de-serialized by the
+next component in the chain. The serialization offers a decoupling between the
+parser and the next stages of the application.
+
+\subsection{Commander Modules}
+\label{sub-sec:commanders}
+The main component of \project is the \textbf{Commander}. The commander is
+instantiated at the beginning of the generation process and it basically
+controls the other modules. It receives the previously created dump file, and
+recreates the \textbf{vmgStruct} in memory. A commander uses the information
+from the \textbf{hardware} section in the config file
+(\labelindexref{Subsection}{sub-sub-sec:hardware-sec}). 
+
+Because the steps needed to configure the virtual machine depend on what
+virtualization solution is used, there must be a commander for each supported
+virtualization solution. To keep the structure modular, an abstract class,
+\textbf{CommanderBase}, is used. This base class splits the generation process
+into smaller steps, and executes them in the correct order. For each step,
+there is an abstract method, which must be implemented by each of the concrete
+commanders. The abstract methods can be seen in
+\labelindexref{Listing}{lst:commander-methods}.
+
+\lstset{language=Python,caption=CommanderBase methods,label=lst:commander-methods}
+\begin{lstlisting}
+class CommanderBase:
+	...
+	def startVM(self):
+	def shutdownVM(self):
+	def connectToVM(self):
+	def disconnectFromVM(self):
+	def setupHardware(self):
+	def setupPartitions(self):
+	def setupOperatingSystem(self):
+	def setupServices(self):
+	def setupDeveloperTools(self):
+	def setupGuiTools(self):
+	...
+\end{lstlisting}
+
+Only the \textbf{setupVM} method is called on a specific Commander instance.
+This method will, in turn, call the needed operations. The sequence of
+operations needed to configure a new virtual machine can be seen in
+\labelindexref{Listing}{lst:commander-seq}. The commander creates the hardware,
+partitions the disks, and setups the OS on the new machine, then it starts it
+and connects to it. The system configuration is made by instantiating the
+corresponding \textbf{Config} module (see
+\labelindexref{Subsection}{sub-sec:configs}) for the specified OS and calling
+its main method. The final step before turning the machine off is installing
+the applications, by category: services, developer tools, graphical
+applications. The installations are done by instantiating the corresponding
+\textbf{Installer} module (see \labelindexref{Subsection}{sub-sec:installers}).
+Each of these operations is implemented differently by the commanders.
+
+\lstset{language=Python,caption=Commander sequence of steps,label=lst:commander-seq}
+\begin{lstlisting}
+def setupVM(self):
+	self.setupHardware()
+	self.setupPartitions()
+	self.setupOperatingSystem()
+
+	self.startVM()
+	self.connectToVM()
+
+	self.config = self.getConfigInstance()
+	self.config.setupConfig()
+	self.root_passwd = self.config.getNewRootPasswd()
+
+	self.installer = self.getInstallerInstance()
+	self.setupServices()
+	self.setupDeveloperTools()
+	self.setupGuiTools()
+
+	self.disconnectFromVM()
+
+	self.shutdownVM()
+\end{lstlisting}
+
+For each virtualization solution, a new commander is created by deriving the
+\textbf{CommanderBase} class and implementing the corresponding operations:
+\textbf{CommanderLxc}, \textbf{CommanderOpenvz}, \textbf{CommanderVmware} etc.
+An advantage of this organization is that a user who wants to add support for a
+different virtualization solution needs to define a new derived
+\textbf{Commander}, along with a corresponding \textbf{Communicator} (see
+\labelindexref{Subsection}{sub-sec:communicators}) and add the particular
+implementations for its operations. The only modification needed to be made to
+the main application is at the top level, where the commanders are
+instantiated, to add the instantiation code for the new commanded.
+
+The relationship between the classes can be seen in \labelindexref{Figure}{img:commanders}.
+
+\fig[scale=0.35]{src/img/commanders.pdf}{img:commanders}{Commander modules}
+
+For now, only 3 commanders are implemented, some of which will be presented in
+detail later: CommanderLxc (\labelindexref{Chapter}{chapter:lxc}),
+CommanderVmware (\labelindexref{Chapter}{chapter:vmware}) and CommanderOpenvz.
+In the future, more Commanders can easily be added to the application (more
+details can be found in \labelindexref{Section}{sec:more-virt}).
+
+\subsection{Configuration Modules}
+\label{sub-sec:configs}
+A \textbf{Config} module is responsible for configuring the OS on the virtual
+machine. The options used by the \textbf{Config} modules are placed in the
+\textbf{config} section in the config file
+(\labelindexref{Subsection}{sub-sub-sec:config-sec}).
+
+There is an abstract class, \textbf{ConfigBase}, which has abstract methods for
+each configuration group: \textbf{system configurations}, \textbf{users and
+groups}, \textbf{network}, \textbf{firewall} and a method for applying the
+settings generated by the previous ones. These methods are shown in
+\labelindexref{Listing}{lst:config-methods}.
+
+\lstset{language=Python,caption=ConfigBase methods,label=lst:config-methods}
+\begin{lstlisting}
+class ConfigBase:
+	def setupSystem(self):
+	def setupGroups(self):
+	def setupUsers(self):
+	def setupNetwork(self):
+	def setupFirewall(self):
+	def applySettings(self):
+	...
+\end{lstlisting}
+
+There is also a method, \textbf{setupConfig}, which calls each abstract method,
+to execute each configuration step. The sequence of steps is shown in
+\labelindexref{Listing}{lst:config-seq}. The \textbf{getRootPasswd} method is
+used to return the stored password set for the privileged user during the
+configuration process, for later use. 
+
+\lstset{language=Python,caption=Config sequence of steps,label=lst:config-seq}
+\begin{lstlisting}
+def setupConfig(self):
+	self.setupSystem()
+	self.setupGroups()
+	self.setupUsers()
+	self.setupNetwork()
+	self.setupFirewall()
+
+	self.applySettings()
+\end{lstlisting}
+
+A new \textbf{Config} module is created for each OS family:
+\textbf{ConfigLinux} and \textbf{ConfigWindows} by deriving
+\textbf{ConfigBase}.  Each concrete \textbf{Config} class must implement the
+configuration abstract methods, according to the OS family it implements.  The
+relationship between the classes can be seen in \labelindexref{Figure}{img:configs}.
+
+\fig[scale=0.35]{src/img/configs.pdf}{img:configs}{Config modules}
+
+A \textbf{Config} module is instantiated by the \textbf{Commander}, based on
+the operating system it read from the configuration file (in the hardware
+section). The \textbf{Commander} has a dictionary, whose keys are the possible
+values of the OS, and its values are the various concrete \textbf{Config}
+classes. After the \textbf{Commander} module instantiates the corresponding
+\textbf{Config} module, it needs to call only the \textbf{setupConfig} method
+to make all the necessary configurations. It then needs to retrieve the new
+password for the privileged user by calling the \textbf{getRootPasswd} method.
+
+
+\subsection{Installer Modules}
+\label{sub-sec:installers}
+
+The \textbf{Installer} module is used for installing applications inside the
+generated virtual machine. The main application does not need to know how the
+programs are installed, it needs to only send the install command for a
+specific program. The used tools and the needed operations are encapsulated
+inside an \textbf{Installer} module. The installing process of an application
+is not OS dependent, but rather depends on the installation tools provided by
+the OS. Some of these tools are \textbf{apt} for Debian based systems,
+\textbf{yum} for RedHat based systems, the installation from \textbf{sources},
+for all the Linux distributions, individual \textbf{executable} kits, for
+Windows etc.
+
+The \textbf{Installer} module is used to install the applications specified in
+various sections of the config file, like \textbf{devel}
+(\labelindexref{Subsection}{sub-sub-sec:devel-sec}), \textbf{services}
+(\labelindexref{Subsection}{sub-sub-sec:services-sec}) and \textbf{gui}
+(\labelindexref{Subsection}{sub-sub-sec:gui-sec}).
+
+The only method needed for an \textbf{Installer} module is one that receives a
+list of program names and installs them all. This method is provided by the
+abstract class \textbf{InstallerBase}. The definition of the class is shown in
+\labelindexref{Listing}{lst:installer-methods}.
+
+\lstset{language=Python,caption=Installer methods,label=lst:installer-methods}
+\begin{lstlisting}
+class InstallerBase:
+	def install(self, programList):
+\end{lstlisting}
+
+For each installation tool supported, a
+derived class from \textbf{InstallerBase} is created, like
+\textbf{InstallerApt}, \textbf{InstallerYum}, \textbf{InstallerWindows},
+\textbf{InstallerSource}. So far, only the first 3 installer types are
+supported. The relationship between the classes can be seen in
+\labelindexref{Figure}{img:installers}.
+
+\fig[scale=0.35]{src/img/installers.pdf}{img:installers}{Installer modules}
+
+Internally an \textbf{Installer} module stores a dictionary, for associating a
+generic name for an application (OS and tool independent) with the real name
+and the parameters needed to install the application, using the module's
+specific installation tool. To add new applications, it is sufficient to add
+the corresponding entries in the dictionary, and they will be installable after
+that, without modifying anything else. The applications are installed with the
+default parameters, in the default path (usually in
+\textbf{C:{\textbackslash}Program Files}). We could not found a suitable way to
+specify additional installation options for programs (like destination path,
+shortcuts created etc.), without making the configuration file too complex. A
+solution would be to specify the desired parameters for a program installation
+in a separate file, and in the main configuration file to provide the link to
+that file.
+
+
+\subsection{Communicator Modules}
+\label{sub-sec:communicators}
+
+One of the most important modules is the \textbf{Communicator} module. It
+allows the rest of the components to communicate with the virtual machine
+(\labelindexref{Figure}{img:vm-comm}).  The rest of the modules don't need to
+know which machine are they sending commands to. They have a reference to a
+\textbf{Communicator} object, corresponding to the virtual machine, and they
+use the interface of the communicator to interact, indirectly, with the
+machine. Without the use of \textbf{Communicator} modules, the
+\textbf{Installer} and \textbf{Config} modules, which are independent of the
+virtualization solution used would have to decide by themselves which machine
+they are communicating with, and this code would be duplicated across their
+various implementations.
+
+\fig[scale=0.35]{src/img/vm-communication.pdf}{img:vm-comm}{Communication with the VM}
+
+A communicator provides methods to run commands in the machine, to copy files
+from the local (physical machine) to the guest (VM), to remove files inside the
+guest. An abstract class, \textbf{CommunicatorBase} provides this interface.
+Its definition is presented in \labelindexref{Listing}{lst:comm-methods}.
+
+\lstset{language=Python,caption=Communicator methods,label=lst:comm-methods}
+\begin{lstlisting}
+class CommunicatorBase:
+	def runCommand(self, cmd):
+	def copyFileToVM(self, localPath, remotePath):
+	def deleteFileInGuest(self, remotePath):
+\end{lstlisting}
+
+A \textbf{Communicator} for each virtualization solution is created, by
+deriving \textbf{CommunicatorBase}. So far, we have created the derived classes
+for the supported virtualization solutions: \textbf{CommunicatorLxc},
+\textbf{CommunicatorOpenvz}, \textbf{CommunicatorVmware}. The relationship
+between the classes can be seen in \labelindexref{Figure}{img:communicators}.
+
+\fig[scale=0.35]{src/img/communicators.pdf}{img:communicators}{Communicator
+modules}
+
+The \textbf{CommunicatorVmware} module uses VMware's \textbf{vmrun} utility (at
+\cite{vmrun-man} can be found the official manual) to directly run
+applications, copy files inside the virtual machine, and delete files from it.
+
+The \textbf{CommunicatorLxc} and \textbf{CommunicatorOpenvz} do not interact
+directly with the \textbf{lxc} and \textbf{OpenVz} containers. As will be
+presented in \labelindexref{Chapter}{chapter:lxc}, the containers are not
+generated on the physical machine, but in a VMware virtual machine. So, these 2
+communicators connect to the VMware machine through SSH, using public key
+authentication, and the execute the container specific commands to run programs
+inside the container. To copy files to the container, it is sufficient to
+simply copy through SSH (using \textbf{scp}) the files into the directory where
+the file system of the container resides. To delete files from the container,
+the steps are similar to the ones for copying, but instead of copying a file,
+the \textbf{rm} command is run through SSH, using the path of the container's
+file system.

@@ -1,0 +1,435 @@
+\chapter{VMware}
+\label{chapter:vmware}
+
+\section{Hardware Generation}
+\label{sec:vmware-hw}
+
+A VMware virtual machine has 2 main components: a machine description file
+(\textbf{vmx}) and one or more virtual disks (\textbf{vmdk}). Each of these
+must be generated and configured.
+
+\subsection{The Machine Description File}
+\label{sub-sec:vmx}
+The machine description file contains the virtual machine name, information
+about the OS and the hardware components of the machine (processors, memory,
+network adapters, hard-disks, cd drives etc.). It is a list of property-value
+associations, stored in plain text format. To generate the description file
+for the new machine, the information from the hardware section in the config
+file is used. The currently supported options in the config file are the OS
+type, the name of the machine, the number of processors, the amount of physical
+memory (RAM), the hard-disks, the cd drives, and the network adapters
+parameters. For the hard-disks and cd drives, the file path, the controller
+type (\textbf{ide}, \textbf{lsilogic} etc.) and the position on the controller
+(\textbf{ide0:1}, \textbf{scsi0:5}) can be specified. For a network adapter,
+the user can provide the type of connection to the host (\textbf{nat},
+\textbf{bridge}, \textbf{host-only}), the hardware (MAC) address, and if the
+adapter is powered on when the machine boots up. Only some basic options must
+be specified in the \textbf{vmx} file. When the machine is powered on, the file
+is updated and some additional options are automatically added (like hardware
+addresses for the network cards if none specified, the PCI slot numbers etc.).
+
+VMware does not provide an official list of options, but some extensive
+unofficial references can be found online at \cite{vmx-sanbarrow}. A nice tool
+I found when searching for the available options for the \textbf{vmx} file is
+an online application\footnote{\url{http://www.easyvmx.com/}} which is able to
+generate customized \textbf{vmx} files. The user can select the desired options
+in a visual form, and then he is returned a generated \textbf{vmx} file.
+
+A sample machine description (vmx) file, generated (by \project), is provided
+in \labelindexref{Listing}{lst:sample-vmx}. For example, the \textbf{scsi0.*}
+options specify the HDD controller's and the drive's parameters. In this case,
+the controller is \textbf{SCSI}. For an \textbf{IDE} controller, the syntax is
+similar to the one used for the cd-drives. The disks can be specified using
+\textbf{scsiX:Y} or \textbf{ideX:Y} fields (where X is the SCSI/IDE
+controller's number and Y is the controller's port index).
+
+\lstset{caption=vmx file sample,label=lst:sample-vmx}
+\begin{lstlisting}
+#!/usr/bin/vmware
+config.version = "8"
+virtualHW.version = "7"
+guestOS = "debian5-64"
+
+numvcpus = "2"
+memsize = "256"
+displayName = "First GenVM"
+
+# hard-disk
+scsi0.present = "TRUE"
+scsi0.virtualDev = "lsilogic"
+scsi0:0.present = "TRUE"
+scsi0:0.fileName = "first-disk.vmdk"
+
+# cd-rom
+ide1:0.present = "TRUE"
+ide1:0.deviceType = "cdrom-image"
+ide1:0.fileName = "debian-6.0.0-amd64-CD-1.iso"
+
+# ethernet
+ethernet0.present = "TRUE"
+ethernet0.startConnected = "TRUE"
+ethernet0.connectionType = "nat"
+\end{lstlisting}
+
+\subsection{The Virtual Disks}
+\label{sub-sec:vmdk}
+A virtual disk is a file that can be created with an utility provided by VMware,
+\textbf{vmware-vdiskmanager}. It can be a single file, or split in multiple 2GB
+size files. It is basically, like a physical disk. The creation utility
+requires the size of the disk and the controller type (\textbf{ide},
+\textbf{lsilogic} etc.). To create the desired virtual disks, the parameters of
+each disk is retrieved from the config file and passed to the
+\textbf{vmware-vdiskmanager} utility. Usage examples and the available options
+can be found out by running the \textbf{vmware-vdiskmanager} without any
+arguments. Example commands to create a SCSI and an IDE virtual disks are shown in \labelindexref{Listing}{lst:vmware-vdisk}.
+
+\lstset{caption=vmdk creation commands,label=lst:vmware-vdisk}
+\begin{lstlisting}
+vmware-vdiskmanager.exe -c -s 800MB -a lsilogic -t 0 scsi-disk.vmdk
+vmware-vdiskmanager.exe -c -s 7GB -a ide -t 0 ide-disk.vmdk
+\end{lstlisting}
+
+
+\section{Operating System Installation}
+\label{sec:vmware-os}
+One of the most important step in the virtual machine generation is the OS
+installation. VMware offers an API to interact with the virtual machine, but
+only after the OS is installed on it.  The machine can be controlled using the
+VMware's \textbf{vmrun} command-line utility, or using the \textbf{pyvix}
+framework. The \textbf{pyvix} framework is a wrapper written in Python over
+\textbf{VIX}, the official API provided by VMware for controlling the virtual
+machines programmatically. The method used by the \textbf{CommunicatorVmware} is
+the \textbf{vmrun} one.
+
+\subsection{Unattended OS Installation Solutions}
+\label{sub-sec:vmware-unattended-solutions}
+The first thing I tried to do was to find a way to install the OS unattended.
+For Linux\footnote{\url{http://ixlabs.cs.pub.ro/redmine/projects/vmgen/wiki/AutoLinux}},
+it is possible to provide a file containing the answers to the questions shown
+during the OS install process. However, I found out that there are different
+ways for different distributions: \textbf{preseed files} for Debian and Ubuntu,
+and \textbf{Kickstart} for RedHat and Fedora. I then found out about
+\textbf{fai}, an application which should be able to install any
+distribution unattended, but I couldn't get it to work.
+
+For Windows XP\footnote{\url{http://ixlabs.cs.pub.ro/redmine/projects/vmgen/wiki/AutoXP}},
+I found a way to create a simple text file containing the information needed
+during the setup process. This method didn't work in Windows 7\footnote{\url{http://ixlabs.cs.pub.ro/redmine/projects/vmgen/wiki/Auto7}}, for which I
+found a large application which was able to generate an XML file containing the
+answers.
+
+\subsection{The Setup Used}
+\label{sub-sec:vmware-setup}
+Because there were different ways to install different systems, and because a
+system installation is a time consuming operation, which changes very little
+from one installation to another, I decided to take a different
+approach\footnote{\url{http://ixlabs.cs.pub.ro/redmine/projects/vmgen/wiki/UnattendedInstall}}.
+I manually installed some basic virtual machines with some of the OS supported
+by \project and I stored their disks in a folder (their \textbf{vmx} files are
+not necessary, because new ones will be created). The machines have only the OS
+installed, along with \textit{VMware tools}, for easier interaction afterwards.
+When the user requests a new machine, the corresponding base disk is selected
+and the system partition is cloned from it onto the new disk.
+
+An auxiliary machine is needed to partition the newly created disks and to
+clone a base installation onto it. I configured an additional virtual machine
+(\textbf{VMaster}), with a Debian system, with no GUI, and which was accessible
+through SSH using public key authentication.
+
+\subsection{Setting Up The Partitions}
+\label{sub-sec:vmware-partitions-setup}
+After all the disks of the new machines are created, they are attached to the
+\textbf{VMaster}, along with the base disk corresponding to the desired OS. To
+attach the disks to \textbf{VMaster}, the \textbf{vmx} file of the
+\textbf{VMaster} is duplicated, and the necessary lines are added to the copy.
+The duplication is necessary, to avoid looking for the new options
+automatically added in the original file after the machine is started, in order
+to remove the disks after the job is finished. By cloning, the copy is simply
+discarded at the end of the process. The base disk is selected using a
+dictionary stored inside the \textbf{CommanderVmware} module. The dictionary is
+indexed by the OS identifier. The dictionary is shown in
+\labelindexref{Listing}{lst:basedisk-dict} (only a limited number of systems is
+supported at the moment; more will be added after the application is finished
+and tested). Besides the name of the base disks (the path is a default one for
+all of the disks), the dictionary has entries for other parameters of the
+disks: the \textbf{MBR} type (\textbf{grub2}, \textbf{grub}, \textbf{win}), the
+file system type of the system partition, the disk controller type.
+
+\lstset{caption=sample OS based dictionary,label=lst:basedisk-dict}
+\begin{lstlisting}
+base_disks = {
+	"debian5-64":{ 
+		"name":"debian-64.vmdk",
+		"type":"lsilogic",
+		"mbr":"grub2",
+		"fs":"ext4"},
+	"ubuntu-64":{
+		"name":"ubuntu-64.vmdk",
+		"type":"lsilogic",
+		"mbr":"grub2",
+		"fs":"ext4"},
+	"windows7-64":{
+		"name":"Win7-64.vmdk",
+		"type":"lsisas1068",
+		"mbr":"win",
+		"fs":"ntfs"},
+	"winxppro":{
+		"name":"WinXP.vmdk",
+		"type":"ide",
+		"mbr":"win",
+		"fs":"ntfs"}
+	}
+\end{lstlisting}
+
+After the \textbf{VMaster} is started, the application needs to wait for the OS
+to boot up. This is accomplished using pyvix to wait for the VMware tools to
+load inside the guest. The methods that implement this functionality are shown
+in \labelindexref{Listing}{lst:pyvix-wait-tools}. \textbf{VMaster} needs to
+have VMware tools installed, in order to use this feature. A thread waiting for
+the tools to be ready is created and started. The thread only exits if the
+tools are ready, or when it is killed by another one. To allow the application
+to continue even if the thread did not return, a timeout is set. When the
+timeout expires, an error code is returned.
+
+\lstset{language=Python,caption=wait for VM to boot up,label=lst:pyvix-wait-tools}
+\begin{lstlisting}
+def connect_to_vm(vmx_path):
+	try:
+		# try defaults
+		host = pyvix.vix.Host()
+	except pyvix.vix.VIXException:
+		print "error host"
+	try:
+		vm = host.openVM(vmx_path)
+	except pyvix.vix.VIXException:
+		print "error openVM"
+	return (host, vm)
+
+def _wait_for_tools(vm):
+	try:
+		vm.waitForToolsInGuest()
+	except pyvix.vix.VIXException:
+		pass
+
+def wait_for_tools_with_timeout(vm, timeout):
+	tools_thd = Thread(target = _wait_for_tools, args=(vm,))
+	tools_thd.start()
+	# normally the thread will end before the timeout expires, so a high timeout
+	tools_thd.join(timeout)
+
+	if not tools_thd.isAlive():
+		return True
+	return False
+\end{lstlisting}
+
+After the machine is started, the partition tables on each disk are created
+according to the provided setup in the config file (in the partitions
+sub-section). The \textbf{parted} utility is used to create the partition
+tables. A problem I encountered was that the type for the \textbf{Windows}
+partitions was reported correctly by \textbf{parted}, but it was reported as
+\textit{Linux partition} in \textbf{fdisk} (which was the real type), and a
+Windows system running on that partition wasn't able to boot.  The fix for this
+problem was to use the non-interactive version of \textbf{fdisk},
+\cmd{sfdisk}, to change the partition type to \textbf{Windows type}. To
+create the file system on the partitions, the \textbf{mkfs*} utilities were
+used. The dictionary used to select the specific utility for a partition is
+displayed in \labelindexref{Listing}{lst:mkfs-dict}.
+
+\lstset{caption=utilities to create file systems,label=lst:mkfs-dict}
+\begin{lstlisting}
+mkfs = { 
+	"ntfs":{
+		"cmd":"mkfs.ntfs", 
+		"id":"7"},
+	"ext2":{
+		"cmd":"mkfs.ext2",
+		"id":"83"},
+	"ext3":{
+		"cmd":"mkfs.ext3",
+		"id":"83"},
+	"ext4":{
+		"cmd":"mkfs.ext4",
+		"id":"83"},
+	"swap":{
+		"cmd":"mkswap",
+		"id":"82"}
+}
+\end{lstlisting}
+
+\subsection{Setting Up The OS}
+\label{sub-sec:vmware-os-setup}
+After the partitions are created, the system partition from the base disk is
+cloned onto the partition designed as the new primary (the first partition of
+the first new disk). For a \textbf{NTFS} system partition, the
+\textbf{ntfsclone}, along with the \textbf{ntfsresize} utilities were used,
+whereas for the \textbf{ext*} partitions, a simple \textbf{cp -ax} is used to
+copy the files from one partition to the other. An alternative for the
+\textbf{ext*} partitions is to use \textbf{dd}, but it takes more time to copy
+(because it must copy all the blocks of the partition, not only the used ones).
+
+Then, the MBR of the new system disk is updated, to make it bootable. For the
+base disks having \textbf{grub} or a \textbf{Windows boot loader}, it is
+sufficient to copy the first 446 bytes (out of 512) of the original MBR, using
+\textbf{dd}. This includes only the boot loader part, without the partitions
+information (which is also stored in the MBR). For the \textbf{grub2} disks,
+the above method doesn't work, and the \textbf{grub-setup} utility needs to be
+executed, like in \labelindexref{Listing}{lst:mbr-grub2} (the new system
+partition is located on the \textbf{/dev/sdc} disk, and it is mounted in
+\textbf{/mnt/new\_hdd/})
+
+\lstset{caption=configuring grub2,label=lst:mbr-grub2}
+\begin{lstlisting}
+grub-setup -d /mnt/new_hdd/boot/grub /dev/sdc
+\end{lstlisting}
+
+After the new disks are configured, the \textbf{VMaster} is shut down and the
+disks are detached from it. After the new disks are created and configured, the
+newly created machine can be powered on to continue the generation process.
+
+I tested the partitioning and cloning for the various supported systems:
+Ubuntu, Debian, Windows XP, Windows 7.
+
+
+\section{System Configuration (On Windows Running Guests)}
+\label{sec:vmware-config}
+I was responsible for implementing the Windows configuration and installation
+modules. These modules are not VMware specific, but among the virtualization
+solutions we used so far, VMware is the only one to support a Windows running
+guest.
+
+There is one problem with running commands on the guest system using
+\textbf{vmrun}: the command to be executed cannot be too complex (cannot have
+quoted arguments). Therefore, I chose to create a batch script, in which all
+the desired commands are listed, and then the file is copied onto the guest and
+executed there. Another advantage of the script is that there is no overhead
+for executing each command through \textbf{vmrun} (\textbf{vmrun} is called
+only one, to execute the script).
+
+The \textbf{ConfigWindows} module has the methods described in
+\labelindexref{Subsection}{sub-sec:configs}. To avoid creating a script file
+for each configurations group (system, users, network, firewall), a string
+containing the whole script is created, and each method writes the necessary
+commands into it. In the end, the \textbf{applySettings} method is called,
+which writes the resulted string into a file on the disk (\file{config.bat}),
+and then copies the file onto the guest machine and executes it.
+
+Although the documentation is not as detailed as the one for Linux, Windows has
+some powerful command line utilities which can be used to configure the system,
+like \textbf{net}, \textbf{netsh}, \textbf{wmic} etc. I gathered in a wiki
+page\footnote{\url{http://ixlabs.cs.pub.ro/redmine/projects/vmgen/wiki/SystemConfig}}
+the needed commands and arguments.
+
+A sample generated \file{config.bat} file can be seen in
+\labelindexref{Listing}{lst:config-bat}.
+
+\lstset{caption=Sample generated config.bat,label=lst:config-bat}
+\begin{lstlisting}
+wmic COMPUTERSYSTEM where name="vmgen-pc" call rename "xp-gen"
+net user Administrator pass2
+
+net localgroup vmg /ADD
+net localgroup julius /ADD
+net user caesar alesia /ADD
+net localgroup julius caesar /ADD
+net user vv pass /ADD
+net localgroup vmg vv /ADD
+
+netsh interface ip set address name="Local Area Connection" static 192.168.1.2 255.255.255.0 192.168.1.1 1
+netsh interface ip set dns name="Local Area Connection" static 192.168.1.254 primary
+
+netsh firewall add portopening tcp 22 ssh
+netsh firewall add portopening all 65000 myport
+\end{lstlisting}
+
+\textbf{wmic} is an utility used to display and change various system
+configurations. More usage information can be obtained by running \cmd{wmic
+/?}.
+
+The \textbf{net} command is used to configure the groups, the users and to
+control the system services. Only the users and groups features are used for
+now, to create groups, create users, and add users to the specified groups.
+Running \cmd{net help [section]} (where section can be blank and displays the
+sections, or one of the section displayed without the extra argument).
+
+For the networking and firewall configurations, the \textbf{netsh} utility is
+used. It allows to see the current configuration and to change it. Usage
+information can be displayed by running \cmd{netsh \ldots help}, where the
+dots can be substituted by a chain of zero or more sections (e.g.:
+\cmd{netsh help}, \cmd{netsh interface show help} etc.). For the firewall, there
+can be defined both allowed ports and allowed applications (\project uses only
+the ports feature).
+
+
+\section{Application Installation (On Windows Running Guests)}
+\label{sec:vmware-apps-win}
+On Windows, unlike on Linux, there is no central repository of applications.
+The supported applications are manually downloaded and stored in a folder on
+the server. There is a dictionary file, in which are stored the details for
+installing each application. If the administrator of \project wants to add
+support for additional applications, he can download the setup kits and add the
+corresponding entries to the dictionary.
+
+Extensive documentation about installing application non-interactively on
+Windows can be found at \cite{win-unattended}. There are 3 types of installers
+supported by \project: \textbf{msi} installers, \textbf{simple executable}
+installers and \textbf{archives}. There are different arguments to run the
+installer in quiet mode (non-interactive). The \textbf{msi} installers use the
+\textbf{msiexec} utility, written by Microsoft, and which has standardized
+arguments. The executable installers, in general, have the \textbf{"/S"}
+argument for quiet mode, but there are some exceptions.  The archives are
+actually the application folder stored in a zip file. To install them, it is
+sufficient to extract them in a default path (usually in
+\file{C:{\textbackslash}Program Files}). To be able to extract them, the
+machine needs to have an archiving application preinstalled (I preinstalled
+7zip on the Windows machines, and added it to the system path, to be accessible
+from every folder). A fragment of the dictionary used by
+\textbf{InstallerWindows} is shown in
+\labelindexref{Listing}{lst:installer-win-dict}. There are sample entries for
+each type of installer, with or without additional arguments.
+
+\lstset{caption=Program details dictionary,label=lst:installer-win-dict}
+\begin{lstlisting}
+programs = {
+	"pidgin": {
+		"type":"simple",
+		"setup-file":"pidgin-setup.exe",
+		"args":"/DS=1 /SMS=0 /L=1033 /S"
+	},
+	"vim":{
+		"type":"simple",
+		"setup-file":"gvim-setup.exe"
+	},
+	"python":{
+		"type":"msi",
+		"setup-file":"python-setup.msi"
+	},
+	"emacs":{
+		"type":"script",
+		"setup-file":"emacs.zip"
+	}
+	...
+}
+\end{lstlisting}
+
+The installer module receives the list of applications to be installed and
+generates a \file{setup.bat} file, in which are written the commands for
+installing each application (see the previous section for why a script file is
+created instead of executing the individual commands). The needed install kits
+are added to an archive and copied, along with the \file{setup.bat} file to the
+guest machine. The batch script also contains the command for the extraction of
+the archive. The script is then executed on the guest machine, and the
+applications are installed. After the installation is completed, the script
+deletes all the kits and the initial archive from the guest machine. The script
+is then deleted from the guest and from the local folder too. A sample
+generated \file{setup.bat} file can be seen in
+\labelindexref{Listing}{lst:setup-bat}.
+ 
+\lstset{caption=Sample generated setup.bat,label=lst:setup-bat}
+\begin{lstlisting}
+7z.exe x -oe:\test\ "e:\test\setup.zip"
+del "e:\test\setup.zip"
+ e:\test\ThunderbirdSetup.exe -ms
+ msiexec /qb /i e:\test\python-setup.msi 
+del "e:\test\ThunderbirdSetup.exe"
+del "e:\test\python-setup.msi"
+\end{lstlisting}
