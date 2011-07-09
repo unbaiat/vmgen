@@ -1,8 +1,9 @@
 from vmgConfigBase import ConfigBase
 from runCommands import *
-from os import *
+from vmgUtils import *
+#from os import *
 
-class ConfigLinux(ConfigBase, communicator):
+class ConfigLinux(ConfigBase):
 	def __init__(self, data, comm):
 		self.data = data
 		self.cmds = ""
@@ -15,23 +16,26 @@ class ConfigLinux(ConfigBase, communicator):
 			- the administrator password
 		"""
 
-		section = self.data.getSection("config")
+		section = self.data.getSection('config')
 
 		# set hostname
-		hostname = section.get("hostname")
-		self.config("sysctl kernel.hostname=\"" + hostname + "\"")
+		if section.contains('hostname') is True:
+			hostname = section.get('hostname')
+			self.config("sysctl kernel.hostname=\"" + hostname + "\"")
 
 		# set Administrator password
-		self.rootPasswd = section.get("root_passwd")
-		self.config("echo " + self.rootPasswd + " | passwd --stdin root")
+		self.rootPasswd = None
+		if section.contains('root_passwd') is True:
+			self.rootPasswd = section.get("root_passwd")
+			self.config("echo " + self.rootPasswd + " | passwd --stdin root")
 
 	def setupGroups(self):
 		""" Create groups. """
 		section = self.data.getSection("users")
 		groups = section.get("groups").data.values()
 		for group in groups:
-			group_name = group.get("name")
-			self.config("groupadd " + group_name)
+			print group
+			self.config("groupadd " + group)
 
 	def setupUsers(self):
 		""" Create groups. """
@@ -42,20 +46,22 @@ class ConfigLinux(ConfigBase, communicator):
 			passwd = user.get("passwd")
 
 			# create the user
-			groups = ""
-			if len(user.get('groups')) > 0:
-				groups = "-G " + ", ".join(user.get('groups'))
-			self.config("useradd " + groups + " " + name)
+			
+			for group in splitList(user.get("groups")):
+				print group
+			#if len(user.get('groups')) > 0:
+			#	groups = "-G " + ", ".join(user.get('groups'))
+			#self.config("useradd " + groups + " " + name)
 			
 			# hmm
 			self.config("echo " + passwd + " | passwd --stdin " + name)
 
 	def setupNetwork(self):
 		section = self.data.getSection('network')
-		nameservers = section.getSection('nameservers')
+		nameservers = section.get('nameservers')
 		# nameservers
 		# clear the current nameservers
-		self.comm.runCommand("echo \" \" > /etc/resolv.conf")
+		self.config("echo \" \" > /etc/resolv.conf")
 		for ns in nameservers.data.values():
 			self.config("echo nameserver " + ns + " >> /etc/resolv.conf")
 			
@@ -85,18 +91,20 @@ class ConfigLinux(ConfigBase, communicator):
 	def setupFirewall(self):
 		""" Setup the open ports in the firewall. """
 		section = self.data.getSection("network")
-		ports = section.get("open_ports").data.values()
-		for port in ports:
-			proto = port.get("proto")
-			port_num = port.get("port")
-			desc = port.get("description")
+		if section.contains('open_ports') is True:
+			ports = section.get("open_ports").data.values()
+			for port in ports:
+				proto = port.get("proto")
+				port_num = port.get("port")
+				desc = port.get("description")
 
-			# create the rule
-			self.config("iptables -A INPUT -p " + proto + " --sport " + port_num + " -m state --state NEW,ESTABLISHED -j ACCEPT")
+				# create the rule
+				self.config("iptables -A INPUT -p " + proto + " --sport " + port_num + " -m state --state NEW,ESTABLISHED -j ACCEPT")
 			
-		extra_rules = section.get('firewall_rules').data.values()
-		for rule in extra_rules:
-			self.config(rule)
+		if section.contains('firewall_rules') is True:
+			extra_rules = section.get('firewall_rules').data.values()
+			for rule in extra_rules:
+				self.config(rule)
 
 	def config(self, cmd):
 		self.cmds += cmd + "\n"
@@ -104,23 +112,23 @@ class ConfigLinux(ConfigBase, communicator):
 	def applySettings(self):
 		print self.cmds
 
-		temp_file = "config.sh"
+		temp_file = 'config.sh'
 
 		# write the install command into a temp script file (.bat)
-		with open(temp_file, "w") as f:
+		with open(temp_file, 'w') as f:
 			f.write(self.cmds)
 
 		# copy the temp script file to the guest
-		self.comm.copyFileToVM(temp_file, temp_file)
+		self.comm.copyFileToVM(temp_file, 'tmp/')
 
 		# execute the temp script on the guest
-		self.comm.runCommand("./" + temp_file)
+		self.comm.runCommand("./tmp/" + temp_file)
 
 		# remove the temp script file from the guest
-		self.comm.deleteFileInGuest(temp_file)
+		#self.comm.deleteFileInGuest("/tmp" + temp_file)
 
 		# remove the temp script from the local machine
 		os.remove(temp_file)
 		
-	def getNewRootPasswd():
+	def getNewRootPasswd(self):
 		return self.rootPasswd

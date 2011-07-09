@@ -200,7 +200,7 @@ class CommanderLxc(CommanderBase):
 		arch_name = self.id + ".zip"
 
 		executeCommandSSH("zip -r " + arch_name + " " + files)
-		copyFileFromVM(path + "/" +  arch_name, self.host)
+		copyFileFromVM(path + "/" +  arch_name, "./", self.host)
 
 		return [arch_name, ""]
 

@@ -6,11 +6,11 @@ import vmgLogging
 import posix_ipc
 
 from vmgCommanderVmware import CommanderVmware
-#from vmgCommanderOpenvz import CommanderOpenvz
+from vmgCommanderOpenvz import CommanderOpenvz
 from vmgCommanderLxc import CommanderLxc
 
 cmdSwitch = {   'vmware' : CommanderVmware,
-#				'openvz' : CommanderOpenvz,
+				'openvz' : CommanderOpenvz,
 				'lxc' : CommanderLxc
 }
 

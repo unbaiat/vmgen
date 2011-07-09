@@ -23,16 +23,25 @@ class CommunicatorOpenvz(CommunicatorBase):
 		"""
 			Execute the specified command
 		"""
-		executeCommandSSH("vzctl enter " + self.id + " --exec " + cmd + ";logout")
+		executeCommandSSH("vzctl exec " + self.id + " " + cmd)
+		#executeCommandSSH("vzctl enter " + self.id + " --exec " + cmd + ";logout")
 		
 	def copyFileToVM(self, localPath, remotePath):
 		"""
 			Copy the specified file to the virtual machine
+			$VZDIR is usually /vz, but on Debian system the path is /var/lib/vz
 		"""
-		executeCommand("scp " + key + " " + localPath + " " + self.host + ":$VZDIR/root/" + self.id + "/" + remotePath)
+		
+		executeCommand("scp " + key + " " + localPath + " " + self.host + ":/vz/root/" + self.id + "/" + remotePath)
 	
 	def deleteFileInGuest(self, remotePath):
 		"""
 			Delete the specified file from the virtual machine
 		"""
-		executeCommandSSH("rm -rf $VZDIR/root/" + self.id + "/" + file)
+		executeCommandSSH("rm -rf /vz/root/" + self.id + "/" + remotePath)
+
+	def updatePassword(self, passwd):
+		"""
+			The OpenVZ communicator does not use the password
+		"""
+		pass

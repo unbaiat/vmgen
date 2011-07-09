@@ -40,8 +40,8 @@ def copyFilesToVM(files, host):
 def copyFileToVM(f, host):
 	return executeCommand("scp " + key + " " + f + " " + host + ":")
 
-def copyFileFromVM(f, host):
-	return executeCommand("scp " + key + " " + host + ":" + f)
+def copyFileFromVM(remotePath, localPath, host):
+	return executeCommand("scp " + key + " " + host + ":" + remotePath + " " + localPath)
 
 def setUserHost(s):
 	global user_host
