@@ -56,15 +56,17 @@ class CommanderBase:
 		self.connectToVM()
 
 		self.config = self.getConfigInstance()
-		self.config.setupConfig()
-		root_passwd = self.config.getNewRootPasswd()
-		if root_passwd is not None:
-			self.communicator.updatePassword(root_passwd)
+		if self.config:
+			self.config.setupConfig()
+			root_passwd = self.config.getNewRootPasswd()
+			if root_passwd is not None:
+				self.communicator.updatePassword(root_passwd)
 
 		self.installer = self.getInstallerInstance()
-		self.setupServices()
-		self.setupDeveloperTools()
-		self.setupGuiTools()
+		if self.installer:
+			self.setupServices()
+			self.setupDeveloperTools()
+			self.setupGuiTools()
 
 		self.disconnectFromVM()
 
