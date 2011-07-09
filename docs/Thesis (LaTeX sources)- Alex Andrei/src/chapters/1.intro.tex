@@ -1,0 +1,64 @@
+\chapter{Introduction} \label{chapter:intro}
+Virtualization is certainly one of the most interesting topics in today's IT industry and 
+academia. It is becomming more widely used by companies in various fields as 
+it saves money, time and energy\cite{hess}. It is also an interesting topic of research 
+and can be extremely useful for education purposes. 
+
+To give a short definition, virtualization implies the creation of a virtual 
+version of an operating system\cite{virt}. Another way of puting it, it enables the existence of 
+multiple operating systems on a single computer, through the creation of 
+\emph{virtual machines}. A virtual machine creates an \emph{abstraction} 
+of the physical resources into virtual resources.
+
+There are several different types of virtualization, depending on the level 
+of \emph{abstraction}\cite{osc}. Some of these are:
+\begin{itemize}
+  \item \emph{full virtualization} - complete simulation of the hardware; operating 
+systems run unmodified
+  \item \emph{partial virtualization} - partial simulation; applications may require 
+some modifications
+  \item \emph{paravirtualization} - hardware is not simulated; virtual environments 
+run on the same system as the host, but are isolated
+\end{itemize}
+
+They all have their advantages and disadvantage, some more than others, but each category includes 
+virtualization solutions that are widely used nowadays. In this aspect, it is 
+worth mentioning \texttt{VMware}, \texttt{Virtual Box}, \texttt{Kvm} (full virtualization), 
+\texttt{OpenVZ}, \texttt{lxc} (operating system-level virtualization) and \texttt{Xen} (hypervisor).
+
+Virtualization is an extremely useful tool that can be used in multiple 
+scenarios. Since in enables the existence of multiple operating systems on a 
+single machine, it takes away the necessity of running multiple machines, each 
+with it's own operating systems. Also, because the operating systems are 
+isolated, if one of them crashes, the others will not suffer any damage. This 
+enables a virtual machine to act as a \emph{sandbox}, useful for testing 
+and development purposes.
+
+However useful they are, the process of generating and configuring a virtual 
+machine is a time consuming operation. Installing an operating system, 
+configuring a system and installing a set of applications takes a lot of time as 
+they are operations done by the user manually. This is extremely slow compared 
+to an automated process.
+
+This paper introduces a tool called \texttt{\project} which tries to solve these issues by 
+entirely automating these operations, thus reducing the total time spent. It's 
+purpose is also to offer a common interface for the creation and generation of 
+virtual machines, using several virtualization technologies. This is not easy to 
+accomplish, since virtualization technologies do not tend to offer the same 
+features as others. Each has it's own advantages and issues, so the task of 
+finding the common aspects is rather challenging.
+
+\texttt{Vmgen} also tries to simplify the entire process, thus enabling non-technical 
+users to benefit from the advantages of virtualization without having to go 
+through all the troubles of setting up a new operating system, a process which 
+can get tedious sometimes.
+
+Currently, the tool offers support for both full virtualization - \texttt{VMware} - and 
+operating system-level virtualization - \texttt{OpenVZ} and \texttt{lxc}. It enables the creation 
+and system configuration of Linux and Windows hosts. It also provides software 
+configuration (programs and tools installed) for Windows and some important 
+Linux distributions - Debian, Fedora, Ubuntu.
+
+For the rest of the work, I will describe some of the components and modules 
+of the applications, detail certain aspects of the implementation and offer 
+some suggestions for the tool's future development.

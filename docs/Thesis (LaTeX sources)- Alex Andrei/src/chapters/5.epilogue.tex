@@ -1,0 +1,45 @@
+\chapter{Conclusion} \label{chapter:epilogue}
+Despite the limited amount of time, we managed to provide most of the 
+features we intended for the application. The tool succesfully generates and 
+configures virtual machines for several important virtualization technologies. It
+is rather easy to use and logs details about each operation being performed.
+
+However, there is always room for improvement, so there are a few aspects 
+that can be improved and some features that can be added.
+
+In order to improve the usability aspect, the application definitely would 
+benefit from the use of a \emph{graphical user interface} which would make 
+it easier for the user to generate the configuration file.
+
+Also, the application requires a public framework which would enable users to access 
+it, test it and provide valuable feedback.
+
+Regarding the software configuration, some programs are not supported on some 
+systems, due to repository issues. Also, a source installer module would greatly 
+benefit \project, as it would allow it to install programs on any Linux distribution.
+
+One of the best features of \project is the application architecture which makes it easy to 
+extend. This means that new commander modules can be added fairly easy, in 
+order to provide support for other technologies, like \texttt{Virtual Box} or \texttt{Kvm}. Also, 
+new Linux installer modules can be added to offer support for other package 
+managers, like Gentoo's emerge.
+
+Another aspect that can be improved is the complexity of the system 
+configuration. The application manages to support a large set of settings, 
+which we felt were more likely to be requested by users. However, this is some 
+room for expansions in this area, too. This can also be applied to the set of 
+supported programs which can easily be extended.
+
+Another nice feature would be the use of templates for the virtual machine 
+configurations. This way, users that intend to use the virtual machine for 
+development purposes could use a \emph{Development} template to configure a 
+virtual machine with text editors, system libraries and other development tools 
+installed. Users that are going to use the virtual machine for networking 
+purposes could use a \emph{Networking} template to configure the system with a 
+http server, nmap, wireshark or other networking tools. This kind of options 
+will certainly speed up the tool, since the generation of the configuration 
+file can be rather time consuming.
+
+In retrospect, the work on this project has been both challenging and 
+interesting. The application is a useful tool for various types of users and 
+can be considered a good starting point for future development.

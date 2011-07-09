@@ -1,0 +1,463 @@
+\chapter{OpenVZ Commander Module} \label{chapter:openvz}
+The \texttt{\project}application wishes to provide support for container 
+virtualization solutions and operating system layer virtualization. \texttt{OpenVZ}
+is currently an open-source container virtualization technology built for 
+Linux. The virtual environment (known as \emph{container}) is essentialy a 
+complete Linux file system tree mounted in the host file system and 
+isolated using \texttt{chroot} command. This operation allows processes to run 
+using a different root directory, which means it can not access files 
+outside of specified directory tree. As a result, each container can act 
+like a stand-alone system, with it's own:
+\begin{itemize}
+  \item users
+  \item IP addresses
+  \item files
+  \item applications
+\end{itemize}
+
+Container virtualization implies the creation of the directory tree and 
+configuration file. A large number of precreated \texttt{templates} are 
+available on the OpenVZ download site\footnote{\url {http://download.
+openvz.org/template/precreated/}} 
+which can be easily imported using the OpenVZ API (\texttt{vzctl}). 
+In regards to the aspect of creating new containers, \texttt{OpenVZ} is 
+fairly easy to use, by comparison with the other important container virtualization 
+technology, \texttt{lxc} (linux containers). However, \texttt{lxc} has the 
+advantage of having native support in the Linux kernel. Instead, \texttt{OpenVZ} 
+requires a new kernel, compiled to offer support for container virtualization. 
+Some Linux distributions, like Debian or Fedora, make this operation easier for 
+the user, by providing the compiled kernels in their repositories. The user needs 
+only to install the new kernel and the API tools.
+
+\fig[scale=0.7]{src/img/openvz.png}{img:arch}{OpenVZ Arhitecture}
+
+However, most of the distributions (most notably, Ubuntu) do not offer such 
+support and the user must manually download the kernel, compile it with 
+container virtualization support and install it. This operation can be fairly 
+complicated. Considering these aspects, the system used as a host for the 
+containers, during testing was a \texttt{Fedora 14}.
+
+\section{General Design} \label{sec:openvz-design}
+This section describes the basic implementation of the \texttt{OpenVZ 
+commander module} and its connection with the other modules of the 
+application. A commander module is the application component 
+that creates the virtual machine and it's hardware configuration and 
+instantiates the proper modules to handle further configurations (networking, 
+users, applications, etc ). This module is written in \texttt{Python} but 
+also makes use of \texttt{bash scripts} for certain operations. 
+
+A common interface ( \texttt{vmgCommanderBase}) is used for all the 
+commander modules and contains the basic operations that need to be 
+implemented by any commander. This application architecture facilitates 
+the addition of new commander modules for new virtualization technologies 
+without having to alter the existing modules. 
+\\
+\lstset{language=Python,caption=Commander module interface,
+label=lst:if-commander}
+\begin{lstlisting}
+class CommanderBase:
+	def startVM(self):
+		pass
+	def shutdownVM(self):
+		pass
+	def connectToVM(self):
+		pass
+	def disconnectFromVM(self):
+		pass		
+	def setupHardware(self):
+		pass
+	def setupPartitions(self):
+		pass
+	def setupOperatingSystem(self):
+		pass
+	def setupServices(self):
+		pass
+	def setupDeveloperTools(self):
+		pass
+	def setupGuiTools(self):
+		pass	
+	def getConfigInstance(self):
+		return None
+	def getInstallerInstance(self):
+		return None
+\end{lstlisting}
+
+As seen above, the commander must provide methods for starting or 
+shuting down the virtual machine, for hardware setup (including partitions 
+and operating system, if necessary) and for applications setup (services, 
+developer tools, gui tools).
+
+Also, the commander is responsible 
+for instantiating an \texttt{installer module} that will install the programs 
+requested by the user and a \texttt{config module} that will perform 
+additional configuration to the virtual machine (networking, users).
+
+The \texttt{OpenVZ commander} overrides only a subset of these 
+methods. For example, the \texttt{setupOperatingSystem} method 
+does not have a meaning in the context of container virtualization. 
+The following sections will describe in detail how the \texttt{OpenVZ 
+module} implements each of the methods.
+
+\subsection{Module Control Flow} \label{sec:openvz-flow}
+The \texttt{OpenVZ commander module} is responsible for creating 
+and configuring a new \texttt{OpenVZ container} using the settings 
+specified in the configuration file. As shown in the previous section, the 
+configuration file is parsed, and the subsequent data structure is serialized 
+and dumped in a file. Also, the central module \texttt{vmgen} is responsible 
+for instantiating the corresponding commander module (OpenVZ, lxc, 
+VMware ).
+\\
+\lstset{language=Python,caption=Retrieve settings from the dump file,
+label=lst:load-dump-file-2}
+\begin{lstlisting}
+class CommanderBase:
+	def __init__(self, dumpFile):
+		self.loadStruct(dumpFile)
+
+	def loadStruct(self, dumpFile):
+		with open(dumpFile, 'rb') as f:
+			self.data = pickle.load(f)
+	...
+
+class CommanderOpenvz(CommanderBase):
+	def __init__(self, dumpFile):
+		CommanderBase.__init__(self, dumpFile)
+	...
+\end{lstlisting}
+
+The first thing the commander does is to restore the data 
+structure containing all the user-specified setting from the dump file and 
+store it locally for further user. After retrieving the settings data structure, 
+the commander will perform the basic setup in the following order:
+\\
+\lstset{language=Python,caption=Operations performed by the 
+commander module,
+label=lst:setup-order}
+\begin{lstlisting}
+	self.setupHardware()
+	self.setupPartitions()
+	self.setupOperatingSystem()
+
+	self.startVM()
+	self.connectToVM()
+
+	self.config = self.getConfigInstance()
+	self.config.setupConfig()
+	self.root_passwd = self.config.getNewRootPasswd()
+
+	self.installer = self.getInstallerInstance()
+	self.setupServices()
+	self.setupDeveloperTools()
+	self.setupGuiTools()
+
+	self.disconnectFromVM()
+
+	self.shutdownVM()
+\end{lstlisting}
+
+The commander first creates the virtual machine and the \texttt{setup 
+hardware} and then starts the virtual machine. Subsequent operations 
+require the vritual machine running. Next, it will instantiate a 
+\texttt{configuration module} and an \texttt{installer module} that will 
+complete the configuration. After these operations are completed, the 
+vritual machine is ready and is packed in order to be transferred to the user. 
+The directory will be packed in an archive file and this will also be packed 
+together with the container configuration file in the final archive which 
+will be passed to the user.
+
+\subsection{OpenVZ API} \label{sec:openvz-api}
+The \texttt{OpenVZ technology} provides an extensive tool for container 
+management: \texttt{vzctl}\cite{vzctl}. This facilitates the creation and removal, 
+startup and shutdown, and the setting of a wide range of parameters for 
+the container\cite{guide}. However, the \texttt{OpenVZ commander} uses only a 
+subset of the options available, since many of them are used for extreme 
+low-level configurations. For example, the option to set the maximum size 
+of the TCP receive buffer ( --tcprcvbuf) is highly unlikely to appear in the 
+user requests. Also, the inclusion of these options would have made the 
+creation of a common interface for all the virtualization solutions extremely 
+difficult.
+
+The subset of options used by the commander is shown below:
+\begin{itemize}
+  \item vzctl \texttt{create} CTID --ostemplate name : creates a new container with the specified 
+id, from a precreated template
+  \item vzctl start | stop | destroy CTID : starts, stops or destroys the container
+  \item vzctl set CTID --cpus num : number of CPUs available in the container
+  \item vzctl set CTID --privvmpages value : controls the amount of memory available
+  \item vzctl set CTID --diskspace value : controls the amount of harddisk available
+  \item vzctl set CTID --netif_add ifname : adds a new virtual interface (veth)
+\end{itemize}
+
+Also, the module does not use some useful options that can be set using the \texttt{vzctl} 
+API, like IP addresses, nameservers, hostname. These are set by the \texttt{configuration 
+module} (configLinux.py)  in a later stage, using Linux commands instead. It is much easier 
+to use a configuration module for Windows and Linux to handle all possible virtualization 
+solutions, instead of creating configuration modules for each technology.
+
+\subsection{Communication Interface} \label{sec:openvz-comm}
+Each commander uses a \texttt{communicator module} to handle the communication with the 
+virtual machine instance. A separate communicator is required for each virtualization solution 
+and must offer a certain interface, defined by the \texttt{vmgCommunicatorBase} class.
+
+\fig[scale=0.5]{src/img/communicators.png}{img:cmd-if}{Common commander interface}
+
+This interface must provide functions for executing commands in the virtual machine 
+(container), for copying and deleting files inside the virtual machine.
+
+\fig[scale=0.4]{src/img/vm-communication.png}{img:comm}{Communication with the virtual machine}
+
+Each communicator is instantiated with a set of communication parameters specific to each 
+virtualization technology. For \texttt{OpenVZ}, these parameters are:
+\begin{itemize}
+  \item \texttt{vmx}: path to the VMware virtual machine used as a host for the container
+  \item \texttt{host}: user and hostname for the VMware virtual machine
+  \item \texttt{id}: the id of the container
+\end{itemize}
+The communicator will use \texttt{ssh} and the \texttt{vzctl} API to execute commands 
+in the VMware host and \texttt{scp} for file transfers:
+\\
+\lstset{language=Python,caption=Communication with the container,
+label=lst:container-comm}
+\begin{lstlisting}
+def runCommand(self, cmd):
+	executeCommandSSH("vzctl enter " + self.id + " --exec " + cmd + ";logout")
+	
+def copyFileToVM(self, localPath, remotePath):
+	executeCommand("scp " + key + " " + localPath + " " + self.host + ":$VZDIR/root/" + self.id + "/" + remotePath)
+	
+def deleteFileInGuest(self, remotePath):
+	executeCommandSSH("rm -rf $VZDIR/root/" + self.id + "/" + remotePath)
+\end{lstlisting}
+
+The file transfers actually represent a simple copy operation to the container directory tree 
+which is mounted in a specific location in the host file system. The location where the containter 
+is mounted is given by the \texttt{\$VZDIR} variable, the \texttt{root/} subfolder and then the subfolder corresponding to the container, which has the name of the \texttt{container id}.
+
+\section{Basic Configurations} \label{sec:openvz-basic-conf}
+
+The settings for the hardware setup are listed in the \texttt{hardware} section of the 
+configuration file:
+\\
+\lstset{language=Python,caption=Hardware section example,
+label=lst:hardware}
+\begin{lstlisting}
+[hardware]
+	vm_id = 123
+	os = fedora-14-x86
+	num_cpu = 1 
+	ram = 1024
+	[[hdds]]
+		[[[hdd0]]]
+		size = 1G
+	[[eths]]
+		[[[eth0]]]
+		type = nat
+		connected = 1
+\end{lstlisting}
+
+For the creation of the container, the module uses a \texttt{precreated template} in the form of a gzip 
+archive, containing the directory tree. The name of the template is set using the \texttt{os} 
+option. The module will use a \texttt{bash script} to make sure the template is present in the OpenVZ 
+cache (/vz/template/cache). If the template is not found, it will try to retrieve it from the 
+OpenVZ download page\footnote {\url {http://download.openvz.org/template/precreated}}.
+\\
+\lstset{language=bash,caption=Bash script to retrieve template,
+label=lst:get-template}
+\begin{lstlisting}
+#!/bin/bash
+...
+get_template()
+{
+	pack=$1.tar.gz
+	# possible download paths
+	precreated="http://download.openvz.org/template/precreated/"
+	beta=$precreated"beta/"
+	contrib=$precreated"contrib/"
+	unsupported=$precreated"unsupported/"
+	# wget: set quite mode && output directory
+	flags="-q -P /vz/template/cache"
+	for link in $precreated $beta $contrib $unsupported
+	do
+		echo " * try $link$pack"
+		wget $flags $link$pack
+		if [ $? -eq 0 ]; then
+			exit 0
+		fi
+	done
+	echo "template not found"
+	exit 1
+}
+...
+\end{lstlisting}
+
+For a complete view of the bash script used for template retrieval, please consult 
+the \labelindexref{annex}{chapter:get-template}.
+
+If the container was succesfully created, the setup continues by starting the 
+container and setting the following options, using the \texttt{vzctl} API 
+mentioned earlier:
+\begin{itemize}
+  \item number of CPUs available inside the container
+  \item amount of memory available
+  \item amount of harddisk available
+\end{itemize}
+
+The most interesting aspect of the hardware setup is the network interfaces setup. 
+OpenVZ provides \texttt{veth}(Virtual Ethernet)\cite{veth} and \texttt{venet}(Virtual Network) 
+devices for networking. The differences between the two are shown below
+\footnote {\url {http://wiki.openvz.org/Differences_between_venet_and_veth}}:
+\\
+\\
+\begin{tabular}{ | c | c | c | }
+  \hline
+  \texttt{Feature} & veth & venet \\ \hline
+  \texttt{MAC address} & Yes & No \\
+  \texttt{Broadcasts inside CT} & Yes & No \\
+  \texttt{Traffic sniffing} & Yes & No \\
+  \texttt{Network security} & Low\footnotemark[2] & High\footnotemark[3] \\
+  \texttt{Can be used in bridges} & Yes & No \\
+  \texttt{Performance} & Fast & Fastest \\
+  \hline
+\end{tabular}
+\footnotetext[2] {Independent of host. Each CT must setup its own separate 
+network security.}
+\footnotetext[3] {Controlled by host.}
+\\
+\\
+The module can setup up networking using any of these two, according to the 
+option \texttt{type} specified for each interface. \texttt{Venet} interfaces only 
+require an IP address. However, \texttt{veth} interfaces needs additional configuration. 
+The commander uses \texttt{netif_add} options in the \texttt{vzctl} API to create 
+an interface in the container, an interface in the host and, most importantly, a 
+bridge between them. Furthermore, \texttt{IP forwarding} and \texttt{proxy_arp} 
+must be enabled for both interfaces,  \texttt{IP addresses} must be assigned to 
+each interface (must be in the same network) and a new default route added in 
+the container. In order to make these persistent, a script including these operations 
+is set to execute at container start-up\footnote{\url{http://www.linuxweblog.com/blogs/sandip/20080814/bridge-networking-on-openvz-containers-using-veth-devices}}.
+
+\section{Additional Configurations} \label{sec:openvz-extra-conf}
+Besides the hardware setup, other additional configurations are required for the 
+container. These include:
+\begin{itemize}
+  \item \texttt{Users setup}: groups, users, passwords
+  \item \texttt{Network setup}: IP addresses, nameservers, hostname
+  \item \texttt{Firewall setup}: open ports, allowed programs, additonal firewall rules
+  \item \texttt{Applications setup}: install programs
+\end{itemize}
+
+These configurations are not done explicitly by the \texttt{OpenVZ commander} module, 
+but by additional components. The reason is that these additional configurations 
+are not related to the virtualization solution. For example, network setup is similar 
+on Linux virtual machines, even if they are OpenVZ container, lxc containers or 
+VMware Linux guests. Also, the application installing does not depend on the 
+virtualization technology, but on the operating system installed:
+\begin{itemize}
+  \item Windows virtual machines use \texttt{InstallerWindows}
+  \item Linux virtual machines use \texttt{InstallerApt}/\texttt{InstallerYum} depending on the 
+distribution (Debian/Fedora/Ubuntu)
+\end{itemize}
+
+However, the commander is responsible for instantiating these additional components 
+with the correct parameters (configuration file settings, list of programs to be installed, 
+communication module).
+
+The following subsection will describe the \texttt{configuration module} for Linux. For the 
+\texttt{Linux installer modules}, please consult \labelindexref{chapter}{chapter:linux-inst}.
+
+\subsection*{Linux Configuration Module} \label{sec:linux-conf}
+As with all the modules of the application, the Linux configuration module is 
+required to implement a specific interface.
+\\
+\fig[scale=0.4]{src/img/configs.png}{img:conf-if}{Common configuration interface}
+
+The \texttt{vmgConfigBase} class specifies that each configuration module must 
+provide methods for system configuration, groups and user setup, network and 
+firewall setup.
+\\
+\lstset{language=Python,caption=Configuration module interface,
+label=lst:if-configure}
+\begin{lstlisting}
+	def setupConfig(self):
+		self.setupSystem()
+		self.setupGroups()
+		self.setupUsers()
+		self.setupNetwork()
+		self.setupFirewall()
+
+		self.applySettings()
+
+	def setupSystem(self):
+		pass
+	def setupGroups(self):
+		pass
+	def setupUsers(self):
+		pass
+	def setupNetwork(self):
+		pass
+	def setupFirewall(self):
+		pass
+	def applySettings(self):
+		pass
+	def getNewRootPasswd():
+		return None
+\end{lstlisting}
+
+The methods will be automatically called by the \texttt{setupConfig} 
+in the correct order (for example, groups before users). The modifications made 
+by all these methods will be applied to the virtual machine by the 
+\texttt{applySettings} method. Furthermore, each configuration module must 
+provide the new access credentials (\texttt{getNewRootPasswd}) for the virtual 
+machine, in order to be used by the subsequent modules (the installer modules).
+
+In detail, the Linux configuration module uses Linux specific commands to 
+handle the necessary configurations. In some cases, multiple commands can be 
+used to achieve the required result. However, the commands used were the ones 
+who have a \emph{permanent} or \emph{non-interactiv behavior}. For example, multiple commands 
+can be used to set the \texttt{hostname}:
+\\
+\lstset{language=bash,caption=Set hostname on Linux systems,label=lst:set-hostname}
+\begin{lstlisting}
+sysctl kernel.hostname=new_hostname
+hostname new_hostname
+edit /etc/sysconfig/network and modify hostname value
+\end{lstlisting}
+
+From the listed commands, the second does not modify the system permanently, 
+while the third is harder to use non-interactively. So, the first command is 
+preferable to be used.
+
+For group and user setup, the \texttt{groupadd} and \texttt{useradd} commands 
+are used, as they are both permanent and can be used non-interactively. For 
+modifying the user passwor, the \texttt{passwd} command can be used, using a 
+standard input redirect and the \texttt{echo} command.
+\\
+\lstset{language=Python,caption=Set user password non-interactively,
+label=lst:user-pwd}
+\begin{lstlisting}
+	echo new_pwd | passwd --stdin user
+\end{lstlisting}
+
+In regards to the network setup, the \texttt{ip} command (iproute2 package) 
+can be used for most of the settings (\emph{ip addr}, \emph{ip link}). However, in some 
+cases file editing is also used - for example, nameserver setup requires the 
+editing of file \emph{/etc/resolv.conf}.
+
+For firewall setup, open ports and firewall rules can be both configured by 
+using \texttt{iptables}.
+
+Each of the previous configurations are added to a script file, which in the 
+end will contain all the requested settings. To apply these settings, the 
+script file is copied and executed inside the virtual machine.
+
+This operation completes the system configuration and the virtual machine can 
+subsequently be used for software configuration - application install.
+
+\section{Testing Results} \label{sec:openvz-testing}
+The commander module has been thoroughly tested to generate various containers 
+for several Linux distributions. Since the time of creating a container is 
+mostly spent on generating the directory tree, and OpenVZ offers the set of 
+precreated templates for this, the time results vary around the 1-2 minutes margin.
+
+The configuration module has been tested both as a stand-alone component and 
+in connection to the commander module with good results. The settings are 
+succesfuly applied to the virtual machine in under 1 minute.

@@ -1,0 +1,33 @@
+\documentclass{thesis.cs.pub.ro}
+\makeindex
+\begin{document}
+
+\input{src/global}
+
+\begin{frontmatter} % roman numbering
+
+%\maketitle
+\input{template/titlepage.en}
+
+\begin{abstract}
+\input{src/base/abstract}
+\end{abstract}
+
+\input{template/contents.pages}
+
+\end{frontmatter} % end roman numbering
+
+% 1.5 linespacing for the contents
+\onehalfspacing
+
+\input{src/main}
+
+\appendix
+\input{src/appendix/index}
+
+\bibliography{src/main}
+\bibliographystyle{plain}
+
+\printindex
+
+\end{document}

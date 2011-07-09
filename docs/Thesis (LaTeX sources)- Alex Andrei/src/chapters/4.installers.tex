@@ -1,0 +1,279 @@
+\chapter{Linux Installers} \label{chapter:linux-inst}
+
+The final stage of the machine configuration is the the installation 
+of programs inside the virtual instance. These are a set of applications 
+that are commonly used on these system (for example, development 
+tools) and are likely to be requested by the users. The set was 
+completed using our previous experience in using virtual machines 
+for development purposes. The list of programs is defined in 
+the configuration file:
+\\
+\lstset{language=Python,caption=User defined list of pograms,
+label=lst:app-list}
+\begin{lstlisting}
+[devel]
+	vim = 1
+	valgrind = 1
+	python = 1
+	openjdk = 1
+[services]
+	mail_server = 1
+	dns_server = 1
+	sshd = 1
+	git = 1
+	mercurial = 1
+\end{lstlisting}
+
+The structure of the configuration file is flexible and the user can add 
+various new programs, but \texttt{\project} will only consider a specific 
+set of programs. Any other values added to the configuration file will 
+be ignored.
+
+The list of programs available for Linux is extensive and includes:
+\begin{itemize}
+  \item \texttt{Networking tools}: nmap, traceroute, netcat, etc
+  \item \texttt{Development tools}: vim, emacs, valgrind, etc
+  \item \texttt{Services}: httpd, dns server, sshd, git, etc
+  \item \texttt{GUI tools}: web browsers, wireshark, etc
+\end{itemize}
+
+For the complete list of programs please consult the project's wiki page
+\footnote{\url{http://ixlabs.cs.pub.ro/redmine/projects/vmgen/wiki/SupportedOptions}}.
+
+The application provides installers for the distributions using \texttt{apt-get} or 
+\texttt{yum} package manager.
+\\
+\fig[scale=0.4]{src/img/installers.png}{img:inst-arch}{Installer architecture}
+
+Both use a common interface, extending the \texttt{InstallerBase} class and 
+overriding it's \texttt{install} method.
+\\
+\lstset{language=Python,caption=Common installer interface,
+label=lst:if-installer}
+\begin{lstlisting}
+class InstallerBase:
+	def __init__(self, communicator):
+		pass
+
+	def install(self, program):
+		pass
+\end{lstlisting}
+
+The architecture is flexible, allowing the addition of new installers for 
+other package managers or a source installer that will compile and install 
+the programs from their source code. 
+
+Each installer uses a communicator passed by the commander module. 
+The communicator is used by the installer to execute commands and 
+copy files inside the virtual machine. This means that the installer does 
+not need to distinguish between the virtualization solutions. The
+transparency is ensured by the communicators.
+
+\section{Apt-get Installer} \label{sec:apt-inst}
+The module \texttt{InstallerApt} is designed to install programs for Linux 
+distributions that use the \texttt{apt-get} package manager. It uses the 
+\texttt{Debian/Ubuntu repository} to retrieve packages for each program and 
+install it accordingly. Each program is identified in the repository by the name 
+of the package. This means that the installer will have to keep a data structure 
+that maps each program to a certain package name. This data structure is 
+stored as a \texttt{Python dictionary} inside the \texttt{InstallerApt} module.
+\\
+\lstset{language=Python,caption=Apt package name mapping,
+label=lst:apt-dict}
+\begin{lstlisting}
+packages = {
+	"mozilla-firefox" : {
+ 		"package" : "iceweasel firefox" },
+	"mozilla-thunderbird" : { 
+		"package" : "icedove thunderbird" },
+	"pidgin" : {
+ 		"package" : "pidgin" },
+	"wireshark" : {
+ 		"package" : "wireshark" },
+	...
+}
+\end{lstlisting}
+
+As seen above, the package name can have multiple values for a certain 
+program, as some packages change their name in time or differ between 
+\texttt{Debian} and \texttt{Ubuntu}. For example, the \texttt{Mozilla 
+Firefox} browser package is known as \texttt{iceweasel} on \texttt{Debian} 
+and \texttt{firefox} on \texttt{Ubuntu}.
+
+Some programs (for example, \texttt{eclipse} or \texttt{mpich2}) that can 
+be found in the \texttt{Ubuntu} repository don't have a correspondent in 
+the \texttt{Debian} repository. Also, the repository version of \texttt{eclipse} 
+is old and the correct way to install it would be to do it manually instead of 
+using the repository. 
+
+As a result of these problems, a small set of programs are not available on 
+some systems.
+
+Regarding the module control flow, the \texttt{installer} will first check the 
+list of programs received from the commander module and will only keep 
+those that can be found in the \texttt{packages} mapping. Any other 
+programs are not supported and considered invalid. Each programs will 
+then be installed by executing the \texttt{apt-get} command inside the 
+virtual machine using the communicator as a mediator.
+\\
+\lstset{language=Python,caption=Programs install,
+label=lst:install}
+\begin{lstlisting}
+install_cmd = " /usr/bin/apt-get install -y -q "
+class InstallerApt:
+	def install(self, programs):
+	...
+	# Retrieve only the list of valid programs
+	packs = [packages[p] for p in programs if p in packages]
+	if packs:
+		[self.comm.runCommand(install_cmd + p['package']) for p in packs]
+\end{lstlisting}
+
+The \texttt{apt-get} command is run in \texttt{quiet mode} (" -q ") since 
+the output is not relevant. Also, the command will run 
+\texttt{non-interactively} (" -y ") and will assume \texttt{yes} as answer to all 
+prompts\cite{apt}.
+
+Another problem encountered in the testing stages on some systems is the 
+presence of an option in the \texttt{apt-get} sources file that enables the 
+command to search the requested package on the installing CD-ROM. However, 
+if this is not found, the command will block waiting for user actions, thus 
+blocking the entire module. To fix these, a \texttt{sed} command will disable 
+any such options by commenting the correspoding lines in the sources file.
+\\
+\lstset{language=Python,caption=Disable cdrom option,
+label=lst:disable-cdrom}
+\begin{lstlisting}
+self.comm.runCommand("sed -i '/cdrom/s/^/# /' /etc/apt/sources.list")
+\end{lstlisting}
+
+\subsection *{Testing results}
+This installer has been tested more as a stand-alone module, independently 
+from the central module. This has the advantage of not wasting time on each 
+test with the virtual machine creation and system configuration.
+
+The tests included various sets of applications, including both small and large 
+packages. The time result can vary significantly as a result, ranging from several 
+seconds, for sets of small packages, to several minute for lage packages.
+
+To install all the applications supported, the application required up to 10 
+minutes. This figure can also vary, depending on the Internet connectivity and 
+the host system. The time can not be improved by the application as it is only 
+related to package manager operations, the retrieval of packages and the actual 
+install.
+
+The module has also been tested, with good results, in the context of the 
+entire application, to check the connectivity between this module and the 
+corresponding commander module.
+
+The module has been tested on Debian 6 and Ubuntu 10.10 distributions. 
+For some older distributions, the installer does not guarantee the succesful 
+install of all the programs specified. This can easily be fixed with an
+extended testing stage.
+
+\section{Yum Installer} \label{sec:yum-inst}
+The module \texttt{InstallerYum} is designed to install programs for Fedora
+distributions that use the \texttt{yum} package manager. This is similar to 
+the \texttt{apt-get} repository mentioned in the previous 
+\labelindexref{section}{sec:apt-inst}. Each program is identified by a package 
+name. In addition, a set of programs (for example, development tools) can be 
+installed together as a group. In this case, the identifier is the name of the 
+group\cite{yum}.
+
+Considering the similarities, the structure of the \texttt{Yum installer} will 
+basically be the same, mapping each program to a package name. However, 
+each install entry will also require a \texttt{type} value to distinguish the 
+groups of packages from simple packages. Another option \texttt{local} 
+is supported to enable the install of programs from local \texttt{rpm} files, 
+but still using the \texttt{yum} package manager.
+\\
+\lstset{language=Python,caption=Yum package name mapping,
+label=lst:yum-dict}
+\begin{lstlisting}
+packages = {
+	"mozilla-firefox" : {
+		"type" : "simple",
+		"package" : "firefox" },
+	"mozilla-thunderbird" : {
+		"type" : "simple",
+		"package" : "thunderbird" },
+	"build-utils" : {
+		"type" : "group",
+		"package" : "\"Development Tools\" \"Development Libraries\"" },
+	...
+}
+\end{lstlisting}
+
+Some programs are not present by default in the \texttt{yum repository}. 
+These programs require the addition of a specific \texttt{repo} file to the 
+\texttt{yum} configuration files (the default location is \texttt{/etc/yum/repos.d}). 
+The path to such \texttt{repo} files must be provided, as the installer needs to 
+copy it inside the virtual machine. These programs can be identified in the 
+packages dictionary by their type, which is set to \texttt{repo}.
+
+Almost the entire set of available programs for the Linux guests is available in the 
+\texttt{yum} repository, the most important exception being the \texttt{Chrome} 
+web browser. The best way to install it is to use \texttt{Google's own yum 
+repository}, using a \texttt{repo} file. Also, \texttt{dynamips} is not supported 
+by the yum repository, but it can be installed by using a \texttt{rpm} file.
+
+The control flow of this installer is similar to the \texttt{Apt installer}. This means 
+that the module will first check the programs requested by the user and keep only 
+the ones that are supported (the program name is a key in the \texttt{packages} 
+dictionary. Afterwords, each program will be installed according to it's type.
+\\
+\lstset{language=Python,caption=Install commands,
+label=lst:inst-yum-cmd}
+\begin{lstlisting}
+local_cmd = " yum -y -d 0 -e 0 localinstall --nogpgcheck "
+simple_cmd = " yum -y -d 0 -e 0 install "
+group_cmd = " yum -y -d 0 -e 0 groupinstall "
+\end{lstlisting}
+
+The \texttt{yum} command is run non-iteractively (" -y") and assumes \texttt{yes} 
+to all prompts. Also, the output of the command is irrelevant and is therefore 
+suppressed (the debug level and error level are set to 0).
+\\
+\lstset{language=Python,caption=Install commands,
+label=lst:inst-cmd}
+\begin{lstlisting}
+if p['type'] == 'simple':
+	self.comm.runCommand(simple_cmd + p['package'])
+if p['type'] == 'group':
+	self.comm.runCommand(group_cmd + p['package'])
+if p['type'] == 'repo':
+	# copy repo file in container
+	self.comm.copyFileToVM(p['repo'], p['package'] + ".repo")
+	# install package
+	self.comm.runCommand(simple_cmd + p['package'])
+if p['type'] == 'local':
+	# copy rpm to root
+	self.comm.copyFileToVM(p['rpm'], ".")
+	# execute
+	self.comm.runCommand(local_cmd + p['package'])
+	# remove rpm
+	self.comm.runCommand("rm -rf *.rpm")
+\end{lstlisting}
+
+The install command will differ for simple packages, group packages and local 
+packages. In addition, the local installation requires the \texttt{rpm} file to 
+be copied inside the virtual machine, before running the \texttt{yum} 
+command with a specific flag. Also, the \texttt{repo} type programs 
+need the configuration file copied to the guest, but are installed as simple 
+packages afterwords.
+
+\subsection *{Testing results}
+Similar to the \texttt{Apt} installer, this component has also been tested more 
+from a stand-alone perspective.
+
+The tests included various sets of applications, including both small and large 
+packages. To install all the applications supported, the application required 
+up to 12 minutes. This figure can vary, depending on the Internet 
+connectivity and the host system.
+
+The connectivity with the commander module has also been tested, by running 
+the entire application with all the modules included.
+
+The module has been tested on Fedora 14 distribution. However, tests for older 
+distributions are required in order to fix any problems that may arise because 
+of the changes in the repository.

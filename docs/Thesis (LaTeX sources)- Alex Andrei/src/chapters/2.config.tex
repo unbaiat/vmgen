@@ -1,0 +1,290 @@
+\chapter{Configuration File} \label{chapter:config}
+The \texttt{\project}application requires the use of a configuration file at 
+startup. This must be provided by the user and must contain the settings 
+for the new virtual machine. The only setting not found in this file is the 
+virtualizaton technology - that detail will be specified directly to the central 
+module. The configuration file is the basis for all subsequent configurations.
+
+The other option considered for providing the settings was an interactive 
+prompt in which the user would specify the settings guided by the application. 
+However, the use of a configuration file proved to be much more faster to use, 
+although a little bit more difficult. Also, if a graphical interface would be 
+created for the application, it would be much easier to integrate it and would 
+not imply any modifications to the existing source code.
+
+The following image shows the configuration file's role in the application's 
+flow.
+\\
+\fig[scale=0.35]{src/img/application-flow.png}{img:flow}{Application flow}
+
+\section{Format} \label{sec:config-format}
+In order to make it easier to create, edit or interpret in later stages, the 
+configuration file uses the \texttt{INI} file format to organize the data
+\footnote{\url{http://en.wikipedia.org/wiki/INI_file}}. Another option 
+considered was the use of the \texttt{XML} file format. This format uses the 
+same basic representation (key, value pairs) and supports many of the same 
+features as the \texttt{INI} format. Also, Python standard library supports 
+both file formats (\texttt{XML} parsers and \texttt{INI} parsers). However, 
+the \texttt{XML} syntax is much more complicated and dense. A configuration 
+file in the \texttt{XML} file format can be \texttt{2-3} times larger than the 
+equivalent in the \texttt{INI} file format. For these reasons, the \texttt{INI} 
+format was preferred.
+
+In the \texttt{INI} file format, each basic setting has a \texttt{name} 
+and a \texttt{value}.
+\\
+\lstset{language=Python,caption=Basic configuration setting,
+label=lst:conf-settings}
+\begin{lstlisting}
+	ip=192.168.1.2
+	gateway=192.168.1.0
+	nameserver=192.168.1.1
+\end{lstlisting}
+
+Related settings are grouped in \texttt{sections}. The major sections are:
+\begin{itemize}
+  \item hardware
+  \item network
+  \item users
+  \item config
+  \item devel
+  \item services
+  \item gui
+\end{itemize}
+
+These sections may contain nested sections - subsections, forming a hierarchy. A new 
+subsection is marked by an extra pair of sorrounding brackets ("[...]"). Each major 
+section will be presented in detail in \labelindexref{section}{sec:conf-features}. For more 
+details about the content of the configuration file, please consult the project's wiki pages
+\footnote{\url{http://ixlabs.cs.pub.ro/redmine/projects/vmgen/wiki/SupportedOptions}}.
+\\
+\lstset{language=Python,caption=Nested sections,
+label=lst:subsections}
+\begin{lstlisting}
+[hardware]
+	...
+	[[hdds]]
+		...
+		[[[hdd0]]]
+			...
+			[[[[partitions]]]]
+				...
+\end{lstlisting}
+
+The syntax is flexible, allowing the following features:
+\begin{itemize}
+  \item empty values
+  \item white spaces
+  \item empty lines
+  \item list values
+  \item multiple line values
+  \item comments. 
+\end{itemize}.
+However, options outside the major sections will not be taken into account. 
+Also, the user must take into account the fact that one section(major section 
+or subsection) lasts until a token marking another section is found ("["). 
+Identation is not required, but is highly recommended as it makes the 
+configuration file much easier to interpret visually.
+
+\section{Supported Features} \label{sec:conf-features}
+As mentioned earlier, related settings are grouped in \emph{major} sections. The 
+\emph{hardware} section contains the settings used for the actual creation 
+of the virtual machine. It must contain a virtual machine identifier (name 
+for VMware or lxc/numeric ID for OpenVZ) and an operating system identifier. 
+Also, it can specify the amount of memory available to the virtual machine or 
+the number of CPUs.
+
+Furthermore, this section specifies the disk structure, by setting the hard 
+drives, their parameters and the partitions. The cd drives can also be included 
+in this section, as well as the network interfaces.
+
+The rest of the sections include options used in the subsequent system 
+configuration (networking, users) or software configuration (applications).
+
+The \texttt{network} section contains the network parameters for each 
+interface: IP address, gateway (on Windows), network mask or global 
+parameteres: nameservers, gateway (on Linux). This section also includes 
+firewall settings, by including a subsection that specifies the open ports and 
+allowed applications. Also, for Linux, the section can include a subsection 
+where the user can submit custom firewall rules (iptables). Besides these 
+system settings, the section also includes a set of programs which can be 
+categorised as networking tools (nmap, tcpdump, etc). These can be 
+installed in the virtual machine.
+
+The \texttt{users} section contains a list of custom groups and a list of new 
+users with the corresponding parameters: password, group(s), home directory 
+(Linux).
+
+The \texttt{config} section contains some additional options for system 
+configuration: hostname, root password, additional repositories (some Linux 
+distributions).
+
+The remaining three sections contain lists of programs which are to be 
+installed in the virtual machine. These programs are grouped in three major 
+categories:
+\begin{itemize}
+  \item \texttt{devel} - development tools
+  \item \texttt{services} - services to be configured
+  \item \texttt{gui} - tools with graphical interfaces
+\end{itemize}
+
+The \texttt{development tools} category includes:
+\begin{itemize}
+  \item text editors and IDEs - Vim, Emacs, Eclipse
+  \item programming languages - Python, Php, Tcl
+  \item debugging tools - valgrind
+  \item support libraries - build-utils, kernel-devel, mpich2, openmp, openjdk
+\end{itemize}
+
+The \texttt{services} category includes:
+\begin{itemize}
+  \item servers: http, mail, dns, ...
+  \item subversion systems: git, svn, mercurial
+  \item network file systems: NFS, LustreFS
+  \item additional services: ntp, squid proxy, bittorent
+\end{itemize}
+
+The \texttt{gui} section includes:
+\begin{itemize}
+  \item web browsers: Mozilla Firefox, Google chrome
+  \item mail clients: Mozilla Thunderbird
+  \item network analyzers: Wireshark
+\end{itemize}
+
+For more details on the supported configuration file options, please consult 
+the project's wiki pages\footnote{\url
+{http://ixlabs.cs.pub.ro/redmine/projects/vmgen/wiki/SupportedOptions}}.
+
+\section{Editing and Parsing} \label{sec:conf-parsing}
+The python standard library includes a module \texttt{ConfigParser} that can 
+be used to parse configuration files that have a structure similar to INI files. 
+However, the major disadvantage of this solution is that it does not support 
+nested sections.
+
+The structure of the configuration file without the use of nested sections 
+can get extremely complicated. As a result, the application uses for parsing the 
+\texttt{ConfigObj}
+library which also adds some useful features, while maintaing the simplicity of use\cite{conf}.
+
+The parsing module \texttt{vmgParser} just passes the 
+name of the configuration file to \texttt{ConfigObj} which builds a data 
+structure recursively from the content of the configuration file. Because of 
+the way the options are specified ( list of pairs key=value ), an associative 
+array must be used. This type of data structure is known in \texttt{Python} 
+as a dictionary and contains a list of values indexed by keys. For this 
+application, both the keys and the values will be represented as 
+\emph{strings}. The object that represents the entire data strucure is, 
+therefore, a dictionary which contains a list of dictionaries indexed by the 
+name of the major sections. Each nested dictionary will also contain a list 
+of dictionaries corresponding to it's nested sections.
+
+To simplify the access to specific data in this structure, the application uses 
+a wrapper class - \texttt{vmgSection} - which stores the information in a 
+section (the corresponding dictionary) and provides an interface for handling 
+basic operations.
+
+The data structure built from the information in the configuration file is then 
+serialized to be passed to subsequent modules. This means that the structure 
+is converted to a format and stored in a file that can be later used to restore 
+the original structure. This enables multiple modules to use the data structure 
+without requiring parsing and building the structure each time. Also, the 
+Python standard library supports object serialization through the use of the 
+\texttt{pickle} library. The operations of creating the object serialization and 
+writing it to a file (a process called \emph{dumping}), as well as restoring 
+it is extremely fast and easy to use.
+\\
+\lstset{language=Python,caption=Serialized representation of a configuration
+file,label=lst:dump-file}
+\begin{lstlisting}
+(ivmgStruct
+vmgStruct
+p0
+(dp1
+S'data'
+p2
+(dp3
+S'network'
+p4
+(ivmgStruct
+vmgSection
+p5
+(dp6
+...
+\end{lstlisting}
+
+After the parsing stage, the \emph{dump file} is used by the 
+\emph{commander} modules to restore the content of the configuration file 
+and use it for the creation and subsequent configuration of the virtual 
+machines.
+\\
+\lstset{language=Python,caption=Restoring the data structure,
+label=lst:load-dump-file}
+\begin{lstlisting}
+class CommanderBase:
+	def __init__(self, dumpFile):
+		self.loadStruct(dumpFile)
+
+	def loadStruct(self, dumpFile):
+		with open(dumpFile, 'rb') as f:
+			self.data = pickle.load(f)
+\end{lstlisting}
+
+Another important aspect is the editing of the configuration file. The 
+structure is designed as to allow easy interpretation and editing of complex 
+configurations. As a result, the configuration file is fairly easy to modify 
+manually, by the user. However, it is rather difficult to make any 
+modifications from another application. Doing this would require a re-parsing 
+and familiarity with the data structure.
+
+The \texttt{ConfigObj} library provides an interface for configuration file 
+edition. However, \texttt{\project} modules wrap the library's features, 
+masking it outside the application. For this reason, the editing feature of 
+the library can not be directly used.
+
+To solve this, another module was created in order to wrap around the editing 
+feature of the library. It is easy to use by users, or by application, having 
+an intuitive usage (it is similar to the use of \emph{sysctl} command in Linux 
+systems).
+\\
+\lstset{language=Python,caption=Editing the configuration file,
+label=lst:edit-conf}
+\begin{lstlisting}
+	vmgCtl.py network.eths.eth0.address=192.168.1.23
+\end{lstlisting}
+
+The above command accesses the \emph{network} section and the network 
+interfaces subsection to set the IP address of interface eth0.
+
+Similar commands can be used to alter or add any value in the configuration file, in 
+any section or subsection.
+
+One important notice is that the parsing modules of the application \emph{do not 
+check} the validity of the data inside the configuration file. This means that 
+user can set any options to invalid values without this being detected in the 
+parsing stage. This kind of checking is rather complex for this stage and the
+only use would be to fix user errors. Instead, the application will assume the data 
+is correct. Of course, the actual error will be detected later on, by the 
+appropriate module (commander, configuration module or installer).
+
+Also, the addition of unrelated settings in the configuration file will not 
+interfere with the operations of the other modules. For example, the user can 
+add an option, specifying that he wishes a certain unsupported application 
+installed.
+\\
+\lstset{language=Python,caption=Editing the configuration file,
+label=lst:unsupported-setting}
+\begin{lstlisting}
+[gui]
+	...
+	visual_studio=1
+	...
+\end{lstlisting}
+However, this option, although present in the data structure used by all the 
+modules, will be ignored by the corresponding module (the installer module).
+
+The conclusion is that the configuration file's syntax and content is 
+highly flexible, but the options actually used by the modules of the 
+application are restricted to a specific subset.
+
+For more details about the structure and content of configuration files, please 
+consult the various examples included in the \labelindexref{annex}{chapter:conf-samples}.
