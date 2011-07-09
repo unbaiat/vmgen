@@ -1,0 +1,63 @@
+\chapter{Further Development}
+\label{chapter:future}
+Now that the core application is implemented and tested, it can be extended, to
+allow more functionalities and better user interaction.
+
+\section{GUI}
+\label{sec:future-gui}
+The application is somewhat difficult to be used as it is right now. The user
+needs to create from scratch a configuration file (or modify an existing one).
+This process is error prone, some typos might occur. Also, the user needs to
+know all the available options and possible values for them. 
+
+To ease the user interaction with the application, a GUI would help.  The
+addition of a graphical frontend will allow more users to try the application
+and do not be discouraged by the complexity of the configuration file and
+avoids the typing errors. The user will see a Web frontend, where he can select
+the desired options. He is guided towards completing the whole file, and he is
+presented the available options at each step. The frontend module then
+generates a configuration file containing the options the user selected, and
+then passes it to the main application. This modular approach prevents the need
+to modify the existing application when adding a new frontend. In this way,
+multiple frontends may be added, according to the \project administrator's
+desire. The Web interface may look like the previously mentioned
+\textbf{EasyVMX}\footnote{\url{http://www.easyvmx.com/}} online application.
+
+
+\section{Additional Virtualization Solutions}
+\label{sec:more-virt}
+The supported virtualization solutions, so far, are \textbf{VMware},
+\textbf{lxc} and \textbf{OpenVZ}. Support for other technologies can be added
+in the future. The \textbf{Commander} and \textbf{Communicator} modules for
+\textbf{VirtualBox} should be similar to the ones implemented for
+\textbf{VMware}. Some research needs to be done and see how \textbf{KVM} and
+\textbf{xen} virtual machines can be generated. After the needed operations are
+found, the corresponding modules for these virtualization solutions can be
+created. The modular architecture of the application allows for easy addition
+of extra virtualization solutions, by implementing only the \textbf{Commander}
+and \textbf{Config} corresponding modules. In the \textbf{main} method, the
+selection of the module to be instantiated must be also modified, to include
+the new modules.
+
+
+\section{Additional Options In The Configuration File}
+\label{sec:more-opts}
+Support for more installable applications can be added by adding the
+corresponding entries in the dictionaries of the \textbf{Installer} modules. In
+the future, there should be the possibility to provide additional parameters
+for the installers (like installation path, shortcuts created, additional
+settings after installation). This can be done by providing a script file
+containing the exact commands to be run by the installer process. This has the
+disadvantage that the user needs to know exactly the commands needed. It also
+presents a security risk, by allowing the user to enter code that will be
+executed directly, but fortunately, it is only executed on the guest virtual
+machine, and the potential damage is limited to only the guest. This feature is
+essential for configurable services, like a Web server, a DNS server, a DHCP
+server etc. These need additional settings to be made in order to be useful.
+
+Also, the options available for specifying the hardware components are fairly
+basic, it should be possible to allow the user to specify more advanced
+settings, if he wishes to. Only a limited number of OS are supported at the
+moment. Support for more OS should be added in the future, by preparing the
+needed resources (preinstalled base installation disks for \textbf{VMware},
+support machine for \textbf{lxc} and \textbf{OpenVZ} etc).

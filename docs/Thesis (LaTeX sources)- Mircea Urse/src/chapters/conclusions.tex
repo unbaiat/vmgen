@@ -1,0 +1,26 @@
+\chapter{Conclusion}
+\label{chapter:conclusions}
+So far, the application's core has been developed and tested. All the
+components were individually tested, and then they were integrated and the
+whole system was tested. I ran the full process for creating a VMware virtual
+machine, with Windows XP installed, and 4 applications, and it took about 5
+minutes. For the lxc container generation, I tested the creation of Debian and
+Fedora containers, but without making the system configurations and installing
+any applications.
+
+The application is usable, but it offers a limited number of features: only a
+small number of OS are available, a small number of applications are
+installable, the user interaction is not very friendly. We focused on designing
+the application and implementing it in a modular way, to make it easy to extend
+it later and we didn't have the necessary time to polish the application and
+make it fully usable. The project should be continued and the application
+should be released. It will be easy to extend it with new features, because of
+its structure. From my point of view, the application will be useful when it
+will be finished and it will be able to handle a wide range of configurations
+requests, allowing for a easier user interaction. Along with some caching
+mechanisms to speed up the generation process, the application will allow the
+users to obtain the needed virtual machines, spending much less time. They
+don't need to interact with the process, and \project configures the machines
+more quickly, because it can reuse some already generated pieces, and has no
+downtime between the operations (the next operation starts exactly after the
+current one is finished).

@@ -1,0 +1,226 @@
+\chapter{LXC}
+\label{chapter:lxc}
+
+In this chapter, the process of generating an \textbf{LXC} container will be
+described in detail. The documentation I used can be found at \cite{lxc-teegra}
+and \cite{lxc-zen}.
+
+\section{Introduction to LXC Containers}
+\label{sec:lxc-intro}
+\textbf{LXC} is an OS level virtualization solution, which has native support
+in the Linux kernel starting with version 2.6.29. It needs the \textbf{cgroup}
+kernel functionality to work. It is relatively recent (from 2008), and the
+documentation is pretty scarce. It took me a while to figure out the exact
+steps needed to generate a working container. The advantage \textbf{lxc} has
+over \textbf{OpenVZ} is the standard kernel integration. \textbf{OpenVZ} needs
+to use a modified version of the kernel (not available for all distributions)
+to be able to function.
+
+A container consists of 3 parts: a configuration file, a mount points file
+(fstab) and a directory containing the root file system. These will be detailed
+in the next subsections.
+
+\subsection{Host Machine Configuration}
+\label{sub-sec:lxc-host-config}
+To be able to run an \textbf{LXC} on a host machine, some configurations need
+to be made on the host. The \textbf{cgroup} functionality must be configured in
+the running kernel, then the \textbf{cgroup} file system must be mounted in
+\textbf{/cgroup}. For the network adapters in the container to work, at least
+one bridge interface must be configured on the host. A sample entry in the
+\mbox{\textbf{/etc/network/interfaces}} for a Debian system is shown in
+\labelindexref{Listing}{lst:lxc-bridge-cfg}. Finally, the \textbf{lxc}
+utilities must be installed: \textbf{lxc-create}, \textbf{lxc-start},
+\textbf{lxc-execute}, \textbf{lxc-stop} etc. These can be installed either
+using the available package managers (\textbf{apt}, \textbf{yum}) or compiling
+the sources from the project
+site\footnote{\url{http://lxc.sourceforge.net/index.php/about/download/}}.
+
+\lstset{caption=Bridge configuration,label=lst:lxc-bridge-cfg}
+\begin{lstlisting}
+auto br0
+iface br0 inet dhcp
+	bridge_ports eth0
+	bridge_stp off
+	bridge_maxwait 5
+	post-up /usr/sbin/brctl setfd br0 0
+\end{lstlisting}
+
+\subsection{Configuration File}
+\label{sub-sec:lxc-config-file}
+The hardware of the container is described in a configuration file. The
+configuration file is in plain text format, and consists of a list of key-value
+associations, for setting various properties of the container. There are some
+standard options present in the config file, which don't change across the
+different container configurations. The complete list of options and more
+details can be obtained from the manual page of lxc.conf (\textit{man
+lxc.conf}). A sample config file is shown in
+\labelindexref{Listing}{lst:lxc-config} (only the options that are relevant for
+the user). The \textbf{lxc.network.*} options are used to specify the network
+cards configurations. The location of the root file system and the
+\textbf{fstab} file (both relative to the config file's location) are specified
+by \textbf{lxc.rootfs} and \textbf{lxc.mount} respectively. The name of the
+machine is set by the \textbf{lxc.utsname} option.
+
+\lstset{caption=Sample config file,label=lst:lxc-config}
+\begin{lstlisting}
+lxc.utsname = TestMachine
+lxc.rootfs = rootfs.TestMachine
+lxc.mount = fstab.TestMachine
+lxc.network.type = veth
+lxc.network.link = br0
+lxc.network.name = eth0
+lxc.network.mtu = 1500
+lxc.network.ipv4 = 172.16.30.160/24
+lxc.network.flags = up
+\end{lstlisting}
+
+
+\subsection{Mount Points File}
+\label{sub-sec:lxc-fstab-file}
+The file containing the mount points (I will call it the \textbf{fstab} file) is
+a plain text file, which contains the mount points to be used inside the
+container. When the container is started, the will appear as the
+\textbf{/etc/fstab} file. It can be defined inside the root file system, as
+\textbf{\$rootfs/etc/fstab}, or it can be defined outside the file system, and
+included in the container configuration file. A sample \textbf{fstab} file is
+shown in \labelindexref{Listing}{lst:lxc-fstab}. The file is stored outside the
+root file system, which is located in the \textbf{rootfs.TestMachine}
+subdirectory.
+
+\lstset{caption=Sample fstab file,label=lst:lxc-fstab}
+\begin{lstlisting}
+none rootfs.TestMachine/dev/pts devpts defaults 0 0
+none rootfs.TestMachine/proc proc defaults 0 0
+none rootfs.TestMachine/sys sysfs defaults 0 0
+none rootfs.TestMachine/var/lock tmpfs defaults 0 0
+none rootfs.TestMachine/var/run tmpfs defaults 0 0
+/etc/resolv.conf rootfs.TestMachine/etc/resolv.conf none bind 0 0
+\end{lstlisting}
+
+\subsection{Root File System}
+\label{sub-sec:lxc-rootfs}
+The file system directory contains the OS file structure and all the container's
+files. It is, in general, based on a minimal OS file structure, which is then
+modified according to the specific requests. There are some utilities for
+getting a minimum OS file system, like \textbf{debootstrap} for Debian systems,
+and \textbf{febootstrap} for Fedora systems. These utilities download from the
+Internet a specified version of the OS. To copy files inside the container, it
+is sufficient to copy them in the corresponding relative path to the root
+directory. The files of the container are also directly accessible, through
+their relative paths. This is useful for editing the system configuration files
+during the generation process.
+
+I had some trouble using the \textbf{febootstrap} utility to download a Fedora
+minimal OS. I found usage examples, but none of them worked, because it said
+the arguments were invalid. I later found out that the latest version was 3
+(which was also included in the system's repositories), which was completely
+different from the second one. All the examples I found were for the second
+version. I then downloaded the older version and the command worked as
+expected. The only place where I found out that there are multiple completely
+different versions of the program was the application's official
+page\footnote{\url{http://people.redhat.com/~rjones/febootstrap/}}.
+
+The container generation operation is distribution dependent. A Debian
+container can be generated on a Debian running host machine, and the same goes
+for a Fedora container. However, after a container is generated, it can be
+deployed and used on any distribution, regardless of its type. \project
+supports only 2 containers type: Debian and Fedora. A third option would be an
+Ubuntu container, but I couldn't generate a working container. I considered
+that Debian containers can be used instead of Ubuntu ones, because they have a
+similar file structure and configuration files.
+
+\section{The Setup}
+\label{sec:lxc-setup}
+Because of the distribution dependent generation process, and to avoid
+cluttering the physical machine, the containers are created in a VMware virtual
+machine (support machine). There is a machine running Debian and one running
+Fedora. They are used to generate each container type. The machine that will be
+used is selected based on the \textbf{os} field in the application
+configuration file (more details in \labelindexref{Section}{sec:lxc-gen}). The
+machines are configured as described in
+\labelindexref{Subsection}{sub-sec:lxc-host-config}.  Both machines run a SSH
+server, and they are configured to use public key authentication for the root
+user. The use of public key authentication allows the same set of keys (a
+private and a public key) to be used across the whole application, where
+needed, and eliminates the need to remember the password of the root user in
+each of the used machines. All the commands needed for the container creation
+are executed through a SSH connection (even if not mentioned explicitly). 
+
+\section{Container Generation}
+\label{sec:lxc-gen}
+The LXC archive, downloaded from the official site, contains some scripts for
+generating container: \textbf{lxc-debian}, \textbf{lxc-fedora},
+\textbf{lxc-ubuntu}. As I said earlier, the \textbf{lxc-ubuntu} didn't work.
+The other 2 scripts seemed too complex, so I chose not to use them. Instead, I
+created my own set of scripts (BASH scripts):
+\textbf{my-lxc-debian.sh}\footnote{\url{http://blog.bodhizazen.net/linux/lxc-configure-debian-lenny-containers/}}
+and
+\textbf{my-lxc-fedora.sh}\footnote{\url{http://blog.bodhizazen.net/linux/lxc-configure-fedora-containers/}}.
+
+A \textbf{CommanderLxc} and a \textbf{CommunicatorLxc} are used for the
+container generation process. The \textbf{Communicator} uses direct file
+manipulation on the container, and runs commands on the container using the
+\textbf{lxc-execute} utility. These operations are executed on the VMware
+virtual machine, through SSH.
+
+The \textbf{CommanderLxc} module is the central module in the container
+generation process. It reads the OS from the input configuration file, and it
+calls the corresponding scripts, on the corresponding VMware machine to obtain
+the container. The selections are made using a stored dictionary, indexed by
+the OS identifier. The dictionary used to select the support machine and the script file is shown in \labelindexref{Listing}{lst:lxc-dict-vm}.
+
+
+\lstset{language=Python,caption=Dictionary for selecting OS specific elements,label=lst:lxc-dict-vm}
+\begin{lstlisting}
+distro = {
+"debian":{
+	"vm":"/home/vmgen/vmware/Debian (lxc)/Debian (lxc).vmx",
+	"hostname":"root@debian-lxc",
+	"script":"my-lxc-debian.sh",
+	"scripts-folder":"../scripts-lxc/debian/"},
+"fedora":{
+	"vm":"/home/vmgen/vmware/Fedora 64-bit/Fedora 64-bit.vmx",
+	"hostname":"root@fedora-lxc",
+	"script":"my-lxc-fedora.sh",
+	"scripts-folder":"../scripts-lxc/fedora/"}
+}
+\end{lstlisting}
+
+The support machine is powered on, then using the \textbf{Communicator}'s
+methods, the scripts are copied from a local folder onto it and executed there.
+The scripts for the 2 supported distributions are similar. First of all, the
+specified version of the file system is downloaded, using \textbf{debootstrap}
+or \textbf{febootstrap}. Because the download can be time consuming, an
+alternative would be to have the file systems downloaded in a local folder, and
+only copy them from there in the new location, instead of downloading them each
+time. After the file system is downloaded, various system configuration files
+are altered (using \textbf{sed}) or removed (some startup files). The root user
+password is set to a default value, to preserve the modularity of the
+application (it is the \textbf{Config} module's task to set the root password).
+The container config file and fstab are then generated. A fragment of the code
+used to generate the config file is shown in
+\labelindexref{Listing}{lst:lxc-config-gen}. The used variables are initialized
+before, with the appropriate values. The network settings are specified inside
+the config file, by appending the needed options. After that, the container can be powered on, and the
+\textbf{ConfigLinux} and the corresponding \textbf{Installer} module
+(\textbf{InstallerApt} or \textbf{InstallerYum} are used to make the remaining
+configurations and to install the specified applications and services inside
+the container. An archive containing the container (config file, fstab file and
+root file system) is then created, and returned to the user.
+
+\lstset{language=Bash,caption=Generating the config file,label=lst:lxc-config-gen}
+\begin{lstlisting}
+cat << EOF > $config
+lxc.utsname = $name
+lxc.tty = 4
+lxc.rootfs = rootfs.$name
+lxc.mount = fstab.$name
+lxc.cgroup.devices.deny = a
+# /dev/null and zero
+lxc.cgroup.devices.allow = c 1:3 rwm
+lxc.cgroup.devices.allow = c 1:5 rwm
+# consoles
+lxc.cgroup.devices.allow = c 5:1 rwm
+...
+EOF
+\end{lstlisting}

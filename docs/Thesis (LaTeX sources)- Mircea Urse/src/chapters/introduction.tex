@@ -1,0 +1,127 @@
+\chapter{Introduction}
+\label{chapter:intro}
+
+\section{Virtualization Technologies}
+\label{sec:virt-tech}
+
+\subsection{History}
+\label{sub-sec:virt-history}
+The virtualization is not a new technology. It was developed in 1960's by
+IBM, for the mainframes. The problem with the mainframes back then was that
+they were very expensive, and they were not used at their full capacity. The
+virtualization was created to allow the partitioning of a large mainframe in
+multiple virtual machines, in order to use the resources in a more efficient
+way. When the x86 architecture came out, and servers on x86 started to be used,
+virtualization didn't seem necessary, because the computers were cheap, and for
+a while (about 10 years, between 1980's - 1990's) it was abandoned. Soon, the
+need for virtualization began to rise once again, because the computers became
+more and more powerful and they could do more than running a single OS. Unlike
+the mainframes, which had hardware support for virtualization, the x86
+architecture didn't. VMware developed in 1999 the first product which was able
+to run multiple OS on the same x86 hardware. The problem with the x86
+virtualization, was that there were a number of 17 CPU instructions that
+couldn't be virtualized (the OS would crash or malfunction). VMware solved the
+problem by trapping these instructions when they are generated, and replaces
+them with virtualization-safe instructions. Later, more applications that
+allowed virtualization of the x86 hardware, from other companies, appeared:
+\textbf{VirtualPC}, by Connectix (later acquired by Microsoft), \textbf{Xen}
+(an open-source hypervisor), \textbf{VirtualBox} by innoTek (later acquired by
+Sun Microsystems, and now by Oracle), \textbf{lxc} and \textbf{OpenVZ}
+(open-source OS-level virtualization solutions). For more details on the
+virtualization technology history, \cite{practical-virt-solutions},
+\cite{advanced-server-virt}, \cite{vmware-history} and
+\cite{wiki-virt-timeline} can be consulted.
+
+\subsection{Virtualization Types}
+\label{sub-sec:virt-types}
+Virtual machines are used for a wide range of purposes today. Depending on what
+the virtual machine is needed for, a user may choose between various solutions.
+
+\subsubsection{OS Level Virtualization}
+\label{sub-sub-sec:virt-os-level}
+OS level virtualization solutions allow for a more advanced chroot jail. The
+virtual machines are called containers, virtual environments, or virtual
+private servers. All the containers share the kernel of the host machine, so
+the host must be running a Linux version, with support for the used technology.
+The containers have the file system and processes isolated from the other
+containers. The processes from the containers are scheduled by the host's
+scheduler. The overhead of virtualization is minimum because the containers
+don't run a full system inside them. This solution is used, for example, to run
+multiple servers, isolated from each other, or to offer users separate running
+environments, with minimum overhead. However, a problem exists with the kernel
+being shared by all the containers: if one of the container runs some bad
+kernel code and produce a kernel bug, all of the other containers and the host
+machine are affected. Also, a different OS from the host's OS cannot be run in
+a container.
+
+Of the applications that offer OS level virtualization, I can mention
+\textbf{OpenVZ} and \textbf{lxc}, which are currently supported in \project.
+
+\subsubsection{Full System Virtualization}
+\label{sub-sub-sec:virt-full}
+The full system virtualization solutions allow running an entire OS (no need to
+modify the OS to be able to run in a guest machine) inside the virtual machine.
+The OS does not need to be the same as the host's (running, for example, a
+Windows VM on a Linux system, or vice versa). Each VM uses virtual hardware,
+for which there are special drivers. The overhead of running this type of VM is
+higher than the overhead for an OS-level container. The scheduling for the
+processes inside each VM is done by the VM's OS. The host's OS only schedules
+the virtualization application's process. This solution is used to test a new
+OS, without installing directly on the hardware, to run multiple OS at the same
+time. It is also appropriate for kernel development and drivers programming:
+when a programming error is done, the kernel bug affects only the VM, which can
+be then restarted, or, better, reverted to a saved snapshot.
+
+Examples of full system virtualization solutions are \textbf{VMware
+Workstation}, \textbf{VirtualBox}, \textbf{VirtualPC}, \textbf{KVM} etc. Only
+\textbf{VMware Workstation} is currently supported in \project.
+
+\subsubsection{Hypervisors}
+\label{sub-sub-sec:virt-hypervisors}
+Both the previous virtualization solutions type, need an underlying OS running
+on the physical machine. A hypervisor is a minimal piece of software that run
+directly on the hardware, and offers the possibility to create and run multiple
+virtual machines (guests) on top of it. The guests don't see the hardware
+directly, they see a virtualization of it. The advantage is that multiple OS
+can be run concurrently, without the overhead of an intermediate layer.
+However, the performances are not the same as if the OS would run directly on
+the hardware: the virtualized hardware needs special drivers, which cannot make
+full use of the devices features. The OS can be an unmodified version, or a
+modified version which is aware of the hypervisor used, and generates
+instructions to be run on it (the hypervisor is transparent to the
+applications, but not to the OS).
+
+Some hypervisors are \textbf{Xen}, \textbf{VMware ESX}, \textbf{Hyper-V Server}
+etc. \project doesn't currently support any hypervisor.
+
+\section{Motivation}
+\label{sec:motivation}
+I will describe the motivation behind the implementation of \project, and which
+are its goals.
+
+As described above, the virtualization solutions are widely used. Creating a
+virtual machine is a time consuming process, although it consists of relatively
+simple operations, that can be automated. For one machine, it might not be a
+big problem, but when a user wants to generate a couple of machines, some of
+them having similar properties, the process becomes repetitive and it takes
+more time. \project aims to automate the process of generating and configuring
+a VM. The user only needs to make the request for the desired configuration(s),
+and he will receive them when they are created, without any interaction during
+the process.
+
+When a user wants to create a network topology using some virtual machines (for
+academic or other uses), he may need to install several machines with the same
+configuration, but the network card configurations and maybe some services. It
+would be easier to only change a few lines in a configuration file and request
+a new machine instead of installing the machines from scratch.
+
+Another use for \project would be for non-technical users or who don't know how
+to configure a machine and the services on it, but they need the machine, in
+order to interact with its services (e.g. a Web server). The user is able to
+just specify the services to be installed, and it will be given the fully
+configured machine.
+
+In the following chapters, I will present how the application is implemented
+and how the VM generation process works. More implementation details can be
+obtained from the project's website (wiki and repository), at
+\cite{vmgen-ixlabs}.
