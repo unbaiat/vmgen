@@ -359,6 +359,8 @@ class CommanderVmware(CommanderBase):
 		executeCommand("zip -r " + arch_name + " " + files)
 
 		os.chdir(cwd)
+
+		log.info("Archive " + arch_name + " was created.")
 		return [arch_name, new_machine_dir]
 
 	def getConfigInstance(self):

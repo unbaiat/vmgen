@@ -151,10 +151,12 @@ class InstallerWindows(InstallerBase):
 			remote_install_archive = self.getRemotePath(install_archive_script)
 
 			# create an archive file with the needed installers
+			log.info("\tCreating archive with the kits...")
 			files = [p["setup-file"] for p in progs]
 			self.makeArchive(arch_file, files)
 
 			# write the install command into a temp script file (.bat)
+			log.info("\tCreating the install script...")
 			with open(temp_file, "w") as f:
 				# add the current folder to the PATH
 				f.write("set PATH=%PATH%;" + self.setupFolder + "\n")
@@ -188,6 +190,7 @@ class InstallerWindows(InstallerBase):
 			# execute the temp script on the guest
 			# remove the temp script file from the guest
 			# remove the temp script from the local machine
+			log.info("\tRunning the install script on the machine...")
 			self.communicator.fileCopyRunDelete(temp_file, remote_temp_file,
 					"cmd.exe /C ")
 

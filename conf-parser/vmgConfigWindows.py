@@ -1,6 +1,9 @@
 from vmgConfigBase import ConfigBase
 from runCommands import *
 from vmgUtils import *
+from vmgLogging import *
+
+log = logging.getLogger("vmgen.vmgConfigWindows")
 
 class ConfigWindows(ConfigBase):
 	def __init__(self, data, communicator):
@@ -10,12 +13,15 @@ class ConfigWindows(ConfigBase):
 		self.setupFolder = "C:\\"
 		self.cmds = ""
 
+		log.info("Configuring the OS...")
+
 	def setupSystem(self):
 		""" 
 			Setup:
 			- the hostname
 			- the administrator password
 		"""
+		log.info("\tSetting up system settings...")
 
 		section = self.data.getSection("config")
 
@@ -31,6 +37,7 @@ class ConfigWindows(ConfigBase):
 
 	def setupGroups(self):
 		""" Create groups. """
+		log.info("\tSetting up groups...")
 		section = self.data.getSection("users")
 		groups = section.get("groups").data.values()
 		for group_name in groups:
@@ -38,6 +45,7 @@ class ConfigWindows(ConfigBase):
 
 	def setupUsers(self):
 		""" Create groups. """
+		log.info("\tSetting up users...")
 		section = self.data.getSection("users")
 		users = section.get("users").data.values()
 		for user in users:
@@ -52,6 +60,7 @@ class ConfigWindows(ConfigBase):
 				self.config("net localgroup " + group + " " + name + " /ADD")
 
 	def setupNetwork(self):
+		log.info("\tSetting up network...")
 		section = self.data.getSection("network")
 		self.eth_list = getSortedValues(section.get("eths").data)
 		for i, eth in enumerate(self.eth_list):
@@ -90,6 +99,7 @@ class ConfigWindows(ConfigBase):
 
 	def setupFirewall(self):
 		""" Setup the open ports in the firewall. """
+		log.info("\tSetting up firewall...")
 		section = self.data.getSection("network")
 		ports = section.get("open_ports").data.values()
 		for port in ports:
@@ -105,8 +115,7 @@ class ConfigWindows(ConfigBase):
 		self.cmds += cmd + "\n"
 
 	def applySettings(self):
-		print self.cmds
-#		return
+		log.info("\tApplying settings...")
 
 		temp_file = "config.bat"
 		remote_temp_file = "\"" + self.setupFolder + temp_file + "\""
