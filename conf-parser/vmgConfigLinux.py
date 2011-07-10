@@ -46,12 +46,11 @@ class ConfigLinux(ConfigBase):
 			passwd = user.get("passwd")
 
 			# create the user
-			
-			for group in splitList(user.get("groups")):
-				print group
-			#if len(user.get('groups')) > 0:
-			#	groups = "-G " + ", ".join(user.get('groups'))
-			#self.config("useradd " + groups + " " + name)
+			groups = ""
+			#grouplist = splitList(user.get("groups"))
+			#if len(grouplist) > 0:
+			#	groups = "-G " + ", ".join(grouplist)
+			self.config("useradd " + groups + " " + name)
 			
 			# hmm
 			self.config("echo " + passwd + " | passwd --stdin " + name)

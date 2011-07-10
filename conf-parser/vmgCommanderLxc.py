@@ -1,5 +1,7 @@
 from vmgCommanderBase import CommanderBase
-
+from vmgInstallerApt import InstallerApt
+from vmgInstallerYum import InstallerYum
+from vmgConfigLinux import ConfigLinux
 from runCommands import *
 import shutil
 import os
@@ -24,6 +26,12 @@ distro = {
 		"hostname":"root@fedora-lxc",
 		"script":"my-lxc-fedora.sh",
 		"scripts-folder":"../scripts-lxc/fedora/"}
+}
+
+installer = {
+	'debian' : InstallerApt,
+	'ubuntu' : InstallerApt,
+	'fedora' : InstallerYum
 }
 
 """ Container operating system parameters. """
@@ -206,3 +214,13 @@ class CommanderLxc(CommanderBase):
 
 	def getModuleName(self):
 		return "lxc"
+
+	def getConfigInstance(self):
+		return ConfigLinux(self.data, self.communicator)
+
+	def getInstallerInstance(self):
+		vm_os = self.data.getSection("hardware").get("os")
+		for k in installer.keys():
+			if str(k) in vm_os:
+				return installer[k](self.communicator)
+		return None

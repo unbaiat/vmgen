@@ -11,7 +11,9 @@ import shutil
 import os
 import time
 
+#vm="C:\Users\Arya\Documents\Virtual Machines\Fedora-14\Fedora-14.vmx"
 vm="/home/vmgen/vmware/Fedora-32/Fedora-32.vmx"
+#host="root@192.168.6.130"
 host="root@fedora-32"
 script_folder="../scripts-openvz/"
 get_template="get_template.sh"
@@ -43,7 +45,6 @@ class CommanderOpenvz(CommanderBase):
 			vm_id = self.data.getSection("hardware").get("vm_id")
 			log.debug("Stop container ...")
 			executeCommandSSH("vzctl stop " + vm_id)
-			# Build archive and retrieve it
 			#log.debug("Destroy container ...")
 			#executeCommandSSH("vzctl destroy " + vm_id)
 		except Exception as exc:
@@ -51,9 +52,13 @@ class CommanderOpenvz(CommanderBase):
 
 	def createArchive(self):
 		vm_id = self.data.getSection('hardware').get('vm_id')
-		executeCommandSSH("tar -czf fs.tar.gz /vz/private/" + vm_id + "/")
-		executeCommandSSH("tar -czf " + vm_id + ".tar.gz /etc/vz/conf/" + vm_id + ".conf fs.tar.gz")
-		copyFileFromVM(vm_id + ".tar.gz", ".", host)
+		# archive container directory
+		executeCommandSSH("cd /vz/private/" + vm_id + "/;tar -czf fs.tar.gz *;mv fs.tar.gz /tmp/")
+		# copy config file to temp location
+		executeCommandSSH("cp /etc/vz/conf/" + vm_id + ".conf /tmp/")
+		# pack all
+		executeCommandSSH("cd /tmp/;tar -czf " + vm_id + ".tar.gz fs.tar.gz " + vm_id + ".conf")
+		copyFileFromVM("/tmp/" + vm_id + ".tar.gz", "./", host)
 		return vm_id + ".tar.gz"
 
 	def connectToVM(self):
@@ -106,53 +111,59 @@ class CommanderOpenvz(CommanderBase):
 			# interfaces
 			if section.contains("eths"):
 				for k, v in section.get("eths").items():
-					print v
-					print v.get('type')
+					if v.get('type') is 'veth':
+						# executeCommandSSH("vzctl stop " + vm_id)
+						executeCommandSSH(setup_cmd + " --netif_add " + k + " --save")
+						#self.startVM()
 
-					# executeCommandSSH("vzctl stop " + vm_id)
-					executeCommandSSH(setup_cmd + " --netif_add " + k + " --save")
-					#self.startVM()
-
-					# TODO: add this to a script to run at container start
-					# on host vm
-					executeCommandSSH("echo 1 > /proc/sys/net/ipv4/conf/veth" + vm_id + ".0/forwarding")
-					executeCommandSSH("echo 1 > /proc/sys/net/ipv4/conf/veth" + vm_id + ".0/proxy_arp")
-					executeCommandSSH("echo 1 > /proc/sys/net/ipv4/conf/" + k + "/forwarding")
-					executeCommandSSH("echo 1 > /proc/sys/net/ipv4/conf/" + k + "/proxy_arp")
-					executeCommandSSH("ip r add " + "192.168.0.123" + " dev veth" + vm_id + ".0")
-					
-					# in container
-					executeCommandSSH("vzctl exec " + vm_id + " ip link set dev " + k + " up")
-					executeCommandSSH("vzctl exec " + vm_id + " ip a add " + "192.168.0.123" + " dev " + k)
-					executeCommandSSH("vzctl exec " + vm_id + " ip r add default dev " + k)
-					
-			# simple venet interface
-			# executeCommandSSH("vzctl set " + vm_id + " --ipadd " + "172.16.30.23" + " --save")
+						# TODO: add this to a script to run at container start
+						# on host vm
+						executeCommandSSH("echo 1 > /proc/sys/net/ipv4/conf/veth" + vm_id + ".0/forwarding")
+						executeCommandSSH("echo 1 > /proc/sys/net/ipv4/conf/veth" + vm_id + ".0/proxy_arp")
+						executeCommandSSH("echo 1 > /proc/sys/net/ipv4/conf/" + k + "/forwarding")
+						executeCommandSSH("echo 1 > /proc/sys/net/ipv4/conf/" + k + "/proxy_arp")
+						executeCommandSSH("ip r add " + "192.168.0.123" + " dev veth" + vm_id + ".0")
+						
+						# in container
+						executeCommandSSH("vzctl exec " + vm_id + " ip link set dev " + k + " up")
+						executeCommandSSH("vzctl exec " + vm_id + " ip a add " + "192.168.0.123" + " dev " + k)
+						executeCommandSSH("vzctl exec " + vm_id + " ip r add default dev " + k)
+					else:
+						if v.get('type') is 'venet':
+							# simple venet interface
+							# executeCommandSSH("vzctl set " + vm_id + " --ipadd " + "172.16.30.23" + " --save")
+							# do nothing; only the ip address is required; this is done by the config linux module
+							pass
+						else:
+							log.error("Invalid eth type for " + k)
 			
 		except Exception as exc:
 			log.error("Cannot complete hardware configuration: " + str(exc))
 
 	def setupServices(self):
 		print "Installing services..."
-		section = self.data.getSection("services")
-		#self.installPrograms(section)
+		if self.data.contains('services'):
+			section = self.data.getSection("services")
+			#self.installPrograms(section)
 
 	def setupDeveloperTools(self):
 		print "Installing developer tools..."
-		section = self.data.getSection("devel")
-		#self.installPrograms(section)
+		if self.data.contains('devel'):
+			section = self.data.getSection("devel")
+			#self.installPrograms(section)
 
 	def setupGuiTools(self):
 		print "Installing GUI tools..."
-		section = self.data.getSection("gui")
-		#self.installPrograms(section)
+		if self.data.contains('gui'):
+			section = self.data.getSection("gui")
+			#self.installPrograms(section)
 
 	def getConfigInstance(self):
 		return ConfigLinux(self.data, self.communicator)
 
 	def getInstallerInstance(self):
-		vm_id = self.data.getSection("hardware").get("vm_id")
+		vm_os = self.data.getSection("hardware").get("os")
 		for k in installer.keys():
-			if str(k) in vm_id:
+			if str(k) in vm_os:
 				return installer[k](self.communicator)
 		return None

@@ -2,6 +2,10 @@ from vmgInstallerBase import InstallerBase
 from vmgLogging import *
 import os
 from runCommands import *
+from vmgCommunicatorBase import CommunicatorBase
+from vmgCommunicatorVmware import CommunicatorVmware
+from vmgCommunicatorOpenvz import CommunicatorOpenvz
+from vmgCommunicatorLxc import CommunicatorLxc
 
 log = logging.getLogger("vmgen.vmgInstallerYum")
 
@@ -124,13 +128,13 @@ packages = {
 		"package" : "bittorrent" }
 }
 
-local_cmd = " yum -y -d 0 -e 0 localinstall --nogpgcheck "
-simple_cmd = " yum -y -d 0 -e 0 install "
-group_cmd = " yum -y -d 0 -e 0 groupinstall "
+local_cmd = " /usr/bin/yum -y -d 0 -e 0 localinstall --nogpgcheck "
+simple_cmd = " /usr/bin/yum -y -d 0 -e 0 install "
+group_cmd = " /usr/bin/yum -y -d 0 -e 0 groupinstall "
 
 class InstallerYum:
 	def __init__(self, comm):
-		self.comm
+		self.comm=comm
 		
 	def install(self, programs):
 		# Show warnings for unsupported programs
@@ -144,6 +148,7 @@ class InstallerYum:
 		if packs:
 			for p in packs:
 				if p['type'] == 'simple':
+					print 'run simple' + p['package']
 					self.comm.runCommand(simple_cmd + p['package'])
 				if p['type'] == 'group':
 					self.comm.runCommand(group_cmd + p['package'])
@@ -161,8 +166,9 @@ class InstallerYum:
 					self.comm.runCommand("rm -rf *.rpm")
 					
 # Testing
-#vmx_path = "C:\Users\Arya\Documents\Virtual Machines\Fedora-15"
-#vmx_file = "Fedora-15.vmx"
+#vmx_path = "C:\Users\Arya\Documents\Virtual Machines\Fedora-14"
+#vmx_file = "Fedora-14.vmx"
 #vmx = "\"" + os.path.join(vmx_path, vmx_file) + "\""
-#installer = InstallerYum(vmx, 'vmware', user='root', passwd='student')
+#comm_aux = CommunicatorVmware(vmx, 'root', 'student')
+#installer = InstallerYum(comm_aux)
 #installer.install(['valgrind', 'emacs'])

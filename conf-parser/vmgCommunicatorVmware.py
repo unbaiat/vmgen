@@ -19,23 +19,20 @@ class CommunicatorVmware(CommunicatorBase):
 		"""
 			Execute the specified command
 		"""
-		executeCommand("vmrun -t ws -gu " + self.prefix +
-				" runProgramInGuest " + self.vmx + " -activeWindow " + cmd)
+		executeCommand(self.prefix + " runProgramInGuest " + self.vmx + " -activeWindow " + cmd)
 		
 	def copyFileToVM(self, localPath, remotePath):
 		"""
 			Copy the specified file to the virtual machine
 		"""
-		executeCommand("vmrun -t ws -gu " + self.prefix +
-				" copyFileFromHostToGuest " + self.vmx + " " + localPath + " " 
+		executeCommand(self.prefix + " copyFileFromHostToGuest " + self.vmx + " " + localPath + " " 
 				+ remotePath)
 	
 	def deleteFileInGuest(self, remotePath):
 		"""
 			Delete the specified file from the virtual machine
 		"""
-		executeCommand("vmrun -t ws -gu " + self.prefix +
-				" deleteFileInGuest " + self.vmx + " " + remotePath)
+		executeCommand(self.prefix + " deleteFileInGuest " + self.vmx + " " + remotePath)
 
 	def updatePassword(self, passwd):
 		self.passwd = passwd

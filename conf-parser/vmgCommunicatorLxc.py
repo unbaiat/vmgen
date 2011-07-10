@@ -1,3 +1,5 @@
+from vmgCommunicatorBase import *
+
 log = logging.getLogger("vmgen.vmgCommunicatorLxc")
 key = "-i vmaster_key.private"
 
