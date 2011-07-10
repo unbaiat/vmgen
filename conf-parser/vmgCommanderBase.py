@@ -55,16 +55,24 @@ class CommanderBase:
 		self.startVM()
 		self.connectToVM()
 
-		self.config = self.getConfigInstance()
-		self.config.setupConfig()
-		root_passwd = self.config.getNewRootPasswd()
-		if root_passwd is not None:
-			self.communicator.updatePassword(root_passwd)
+		# instantiate and run Config module
+		try:
+			self.config = self.getConfigInstance()
+			self.config.setupConfig()
+			root_passwd = self.config.getNewRootPasswd()
+			if root_passwd is not None:
+				self.communicator.updatePassword(root_passwd)
+		except Exception:
+			print "Error executing Config"
 
-		self.installer = self.getInstallerInstance()
-		self.setupServices()
-		self.setupDeveloperTools()
-		self.setupGuiTools()
+		# instantiate and run Installer module
+		try:
+			self.installer = self.getInstallerInstance()
+			self.setupServices()
+			self.setupDeveloperTools()
+			self.setupGuiTools()
+		except Exception:
+			print "Error executing Installer"
 
 		self.disconnectFromVM()
 
